@@ -85,10 +85,6 @@
     viewer?.setOptions({ ...app.options });
   });
 
-  $effect(() => {
-    const on = app.playing || (!!app.result && !app.isFullView);
-    viewer?.showNozzle(on);
-  });
 
   // ---- tap to inspect, double tap / double click to orbit around a point
   let down: { x: number; y: number; t: number } | null = null;

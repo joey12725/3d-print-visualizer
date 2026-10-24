@@ -1,8 +1,11 @@
 <script lang="ts">
   // Small inline icon set (stroke icons, 24×24 grid).
   const PATHS: Record<string, string[]> = {
-    play: ['M7 4.5v15l12-7.5z'],
-    pause: ['M8 5v14', 'M16 5v14'],
+    home: ['M4 11.5 12 4.5l8 7', 'M6.5 9.5V19.5h11V9.5'],
+    arrowUp: ['M12 19V5', 'M6 11l6-6 6 6'],
+    arrowDown: ['M12 5v14', 'M6 13l6 6 6-6'],
+    arrowLeft: ['M19 12H5', 'M11 6l-6 6 6 6'],
+    arrowRight: ['M5 12h14', 'M13 6l6 6-6 6'],
     reset: ['M3 12a9 9 0 1 0 2.64-6.36L3 8.3', 'M3 3.5v4.8h4.8'],
     upload: ['M12 15V4', 'M7.5 8.5 12 4l4.5 4.5', 'M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3'],
     link: ['M10 13.5a4.5 4.5 0 0 0 6.36 0l3-3a4.5 4.5 0 0 0-6.36-6.36l-1.3 1.3', 'M14 10.5a4.5 4.5 0 0 0-6.36 0l-3 3a4.5 4.5 0 0 0 6.36 6.36l1.3-1.3'],
@@ -18,8 +21,6 @@
     file: ['M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z', 'M14 3v5h5'],
     external: ['M14 4h6v6', 'M20 4l-9 9', 'M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5'],
     download: ['M12 4v11', 'M7.5 10.5 12 15l4.5-4.5', 'M5 20h14'],
-    skipBack: ['M6 5v14', 'M18 5 8 12l10 7z'],
-    skipForward: ['M18 5v14', 'M6 5l10 7-10 7z'],
     maximize: ['M4 9V4h5', 'M20 9V4h-5', 'M4 15v5h5', 'M20 15v5h-5'],
     info: ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18z', 'M12 11v5', 'M12 7.5v.5'],
     trash: ['M4 7h16', 'M9 7V4h6v3', 'M6 7l1 13h10l1-13'],
@@ -27,10 +28,9 @@
   };
 
   let { name, size = 18, stroke = 2 }: { name: keyof typeof PATHS | string; size?: number; stroke?: number } = $props();
-  const fill = $derived(name === 'play' ? 'currentColor' : 'none');
 </script>
 
-<svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke="currentColor" stroke-width={stroke} stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+<svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width={stroke} stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
   {#each PATHS[name] ?? [] as d}
     <path {d} />
   {/each}

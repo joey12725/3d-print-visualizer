@@ -109,25 +109,47 @@ const SURFACES: Record<string, Surface> = {
     metalness: 0.25,
     label: 'Engineering Plate',
   },
+  // K2 Plus: black textured PEI
   k2: {
-    base: '#222326',
-    speckle: ['#3A3B40', '#141517'],
+    base: '#121214',
+    speckle: ['#26272B', '#08080A'],
     speckleAmount: 0.8,
-    grid: 'rgba(255,255,255,0.08)',
-    gridMajor: 'rgba(255,255,255,0.18)',
-    logo: 'rgba(214,180,110,0.32)',
+    grid: 'rgba(255,255,255,0.07)',
+    gridMajor: 'rgba(255,255,255,0.16)',
+    logo: 'rgba(255,255,255,0.22)',
     roughness: 0.92,
-    metalness: 0.12,
+    metalness: 0.1,
+    label: 'Textured PEI',
+  },
+  // A1: bronze / gold textured PEI
+  a1: {
+    base: '#8A6A33',
+    speckle: ['#B08A48', '#5E4620'],
+    speckleAmount: 0.75,
+    grid: 'rgba(40,24,0,0.16)',
+    gridMajor: 'rgba(40,24,0,0.32)',
+    logo: 'rgba(40,24,0,0.34)',
+    roughness: 0.85,
+    metalness: 0.35,
     label: 'Textured PEI',
   },
 };
 
+/** Body colours: the A1 is very light grey, the K2 Plus very dark grey. */
+const BODY: Record<PrinterId, { bed: string; frame: string }> = {
+  k2plus: { bed: '#1B1C1F', frame: '#232428' },
+  a1: { bed: '#D8DADD', frame: '#C4C7CB' },
+  generic: { bed: '#2A2C30', frame: '#34373C' },
+};
+
 export function surfaceFor(printer: PrinterId, bedType: string): Surface {
+  // Each printer keeps its own look so it's obvious which machine you're previewing.
+  if (printer === 'k2plus') return SURFACES.k2;
+  if (printer === 'a1') return SURFACES.a1;
   const b = bedType.toLowerCase();
   if (b.includes('high temp') || b.includes('smooth')) return SURFACES.smoothGold;
   if (b.includes('cool') || b.includes('supertack')) return SURFACES.cool;
   if (b.includes('engineering')) return SURFACES.engineering;
-  if (printer === 'k2plus') return SURFACES.k2;
   return SURFACES.textured;
 }
 
@@ -328,8 +350,37 @@ export function buildPrinterModel(def: PrinterDef, bedType: string): PrinterMode
   const bedShape = roundedRect(plateMin[0] - bedMargin, plateMin[1] - bedMargin, plateSize[0] + bedMargin * 2, plateSize[1] + bedMargin * 2, 3);
   const bedGeo = track(new THREE.ExtrudeGeometry(bedShape, { depth: 5, bevelEnabled: true, bevelThickness: 0.6, bevelSize: 0.6, bevelSegments: 2, curveSegments: 6 }));
   bedGeo.translate(0, 0, -7.2);
-  const bedMat = track(new THREE.MeshStandardMaterial({ color: def.id === 'a1' ? '#2A2C30' : '#202124', roughness: 0.55, metalness: 0.6 }));
+  const body = BODY[def.id];
+  const bedMat = track(new THREE.MeshStandardMaterial({ color: body.bed, roughness: 0.55, metalness: def.id === 'a1' ? 0.15 : 0.5 }));
   group.add(new THREE.Mesh(bedGeo, bedMat));
+  const frameMat = track(new THREE.MeshStandardMaterial({ color: body.frame, roughness: 0.6, metalness: def.id === 'a1' ? 0.1 : 0.4 }));
+  const box = (w: number, d: number, h: number, x: number, y: number, z: number) => {
+    const m = new THREE.Mesh(track(new THREE.BoxGeometry(w, d, h)), frameMat);
+    m.position.set(x, y, z);
+    group.add(m);
+    return m;
+  };
+  const cxBed = (def.min[0] + def.max[0]) / 2;
+  const cyBed = (def.min[1] + def.max[1]) / 2;
+  if (def.id === 'a1') {
+    // Bed slinger: the bed rides on a carriage along a single Y beam that sits on two feet.
+    const beamTop = -7.2 - 16;
+    box(110, 110, 16, cxBed, cyBed, beamTop + 8); // carriage
+    box(46, pd + 170, 26, cxBed, cyBed, beamTop - 13); // Y beam
+    box(pw + 60, 46, 20, cxBed, def.min[1] - 85, beamTop - 26 - 10); // front foot
+    box(pw + 60, 46, 20, cxBed, def.max[1] + 85, beamTop - 26 - 10); // back foot
+  }
+  if (def.id === 'k2plus') {
+    // Enclosed CoreXY: the bed sits inside a dark frame.
+    const out = 34;
+    const h = def.height + 40;
+    const z0 = -60;
+    // back posts and top rail only, so nothing blocks the view from the front
+    for (const x of [def.min[0] - out, def.max[0] + out]) box(16, 16, h - z0, x, def.max[1] + out, (h + z0) / 2);
+    box(pw + out * 2 + 16, 16, 16, cxBed, def.max[1] + out, h);
+    box(pw + out * 2 + 18, pd + out * 2 + 18, 6, cxBed, cyBed, z0); // floor
+    box(28, 28, 50, cxBed, def.max[1] + 4, -7.2 - 25); // rear bed arm
+  }
 
   if (def.id === 'a1') {
     // alignment pins sitting in the notches

@@ -53,15 +53,17 @@
   const daysLeft = (iso: string) => Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000));
 </script>
 
-<h3>Share</h3>
+{#if app.shareManifest || enabled || shares.length}
+  <h3>Share</h3>
+{/if}
 
 {#if app.shareManifest}
   {@const m = app.shareManifest}
   <div class="note">
     <Icon name="info" size={16} />
     <div>
-      This is a shared preview. It is deleted automatically on <b>{fmtDate(m.expiresAt)}</b>
-      ({daysLeft(m.expiresAt)} day{daysLeft(m.expiresAt) === 1 ? '' : 's'} left).
+      Shared link · deleted automatically on <b>{fmtDate(m.expiresAt)}</b>
+      ({daysLeft(m.expiresAt)} day{daysLeft(m.expiresAt) === 1 ? '' : 's'} left)
     </div>
   </div>
   <div class="actions">
@@ -73,7 +75,6 @@
     </a>
   </div>
 {:else if enabled}
-  <p class="blurb">Get a link to this preview that opens on any device. Anyone with the link can view it, and it deletes itself after {SHARE_TTL_DAYS} days.</p>
   {#if app.share.status === 'working'}
     <div class="progress"><div style={`width:${Math.round((app.share.fraction ?? 0) * 100)}%`}></div></div>
     <p class="status">{app.share.label}</p>
@@ -95,8 +96,6 @@
       <p class="error">{app.share.error}</p>
     {/if}
   {/if}
-{:else}
-  <p class="blurb">Share links work on the hosted viewer. Files you open here stay on this device.</p>
 {/if}
 
 {#if !app.shareManifest && shares.length}
@@ -127,12 +126,6 @@
     font-size: 12px;
     font-weight: 600;
     color: var(--muted);
-  }
-  .blurb {
-    margin: 0 0 10px;
-    font-size: 13px;
-    color: var(--muted);
-    line-height: 1.45;
   }
   .note {
     display: flex;

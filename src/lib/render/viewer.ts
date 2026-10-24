@@ -74,7 +74,6 @@ export class Viewer {
   private pickScene = new THREE.Scene();
   private pickTarget = new THREE.WebGLRenderTarget(1, 1);
   private colorAttr: THREE.InstancedBufferAttribute | null = null;
-  private nozzle: THREE.Group;
   private disposables: { dispose(): void }[] = [];
 
   private uniforms = {
@@ -100,7 +99,6 @@ export class Viewer {
   private resizeObs: ResizeObserver;
   private home = { pos: new THREE.Vector3(), target: new THREE.Vector3() };
   private tween: { from: [THREE.Vector3, THREE.Vector3]; to: [THREE.Vector3, THREE.Vector3]; t0: number; dur: number } | null = null;
-  private moveRangeMax = 0;
   /** screen space covered by UI (px); the model is framed in what's left */
   private insets = { right: 0, bottom: 0 };
   /** true once the user has moved the camera; until then resizes re-frame the print */
@@ -142,9 +140,6 @@ export class Viewer {
     this.scene.add(fill);
 
     this.scene.add(this.toolpath);
-    this.nozzle = this.buildNozzle();
-    this.nozzle.visible = false;
-    this.scene.add(this.nozzle);
 
     this.resizeObs = new ResizeObserver(() => this.resize());
     this.resizeObs.observe(container);
@@ -254,7 +249,6 @@ export class Viewer {
   /** Visible moves are [min, max] inclusive (global move indices). */
   setMoveRange(min: number, max: number) {
     this.uniforms.uRange.value.set(min, max);
-    this.moveRangeMax = max;
     const r = this.model;
     if (r && this.tubes) {
       // Skip GPU work for instances past the range end: they are sorted by move index.
@@ -262,7 +256,6 @@ export class Viewer {
       (this.tubes.geometry as THREE.InstancedBufferGeometry).instanceCount = end;
       (this.lines!.geometry as THREE.InstancedBufferGeometry).instanceCount = end;
     }
-    this.updateNozzle();
     this.requestRender();
   }
 
@@ -277,13 +270,6 @@ export class Viewer {
     this.applyOptions();
   }
 
-  /** Show the nozzle marker at the end of the visible range (while scrubbing/playing). */
-  showNozzle(on: boolean) {
-    this.nozzleWanted = on;
-    this.updateNozzle();
-    this.requestRender();
-  }
-  private nozzleWanted = false;
 
   /** Tell the viewer how much of the canvas is covered by overlays. */
   setInsets(right: number, bottom: number) {
@@ -304,7 +290,7 @@ export class Viewer {
     const { target, radius } = this.focusInfo();
     const d = this.fitDistance(radius);
     const dirs: Record<ViewPreset, THREE.Vector3> = {
-      iso: new THREE.Vector3(0.0, -0.78, 0.62),
+      iso: this.isoDir(),
       top: new THREE.Vector3(0, -0.0001, 1),
       front: new THREE.Vector3(0, -1, 0.05),
       back: new THREE.Vector3(0, 1, 0.05),
@@ -390,43 +376,6 @@ export class Viewer {
     this.requestRender();
   }
 
-  private buildNozzle() {
-    const g = new THREE.Group();
-    const mat = new THREE.MeshStandardMaterial({ color: '#E8C26A', metalness: 0.85, roughness: 0.3 });
-    // ConeGeometry's apex points +Y; rotating -90° about X puts it at -Z (down)
-    const tip = new THREE.Mesh(new THREE.ConeGeometry(2.2, 5, 24), mat);
-    tip.rotation.x = -Math.PI / 2;
-    tip.position.z = 2.5;
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.2, 6, 6), mat);
-    body.rotation.x = Math.PI / 2;
-    body.position.z = 8;
-    g.add(tip, body);
-    return g;
-  }
-
-  private updateNozzle() {
-    const r = this.model;
-    if (!r || !this.nozzleWanted) {
-      this.nozzle.visible = false;
-      return;
-    }
-    const max = this.moveRangeMax;
-    // last extrusion or travel at/below max
-    const ei = upperBound(r.ext.move, max) - 1;
-    const ti = upperBound(r.travel.move, max) - 1;
-    let p: [number, number, number] | null = null;
-    const em = ei >= 0 ? r.ext.move[ei] : -1;
-    const tm = ti >= 0 ? r.travel.move[ti] : -1;
-    if (em >= tm && ei >= 0) p = [r.ext.pos[ei * 6 + 3], r.ext.pos[ei * 6 + 4], r.ext.pos[ei * 6 + 5]];
-    else if (ti >= 0) p = [r.travel.pos[ti * 6 + 3], r.travel.pos[ti * 6 + 4], r.travel.pos[ti * 6 + 5]];
-    if (!p) {
-      this.nozzle.visible = false;
-      return;
-    }
-    this.nozzle.position.set(p[0], p[1], p[2]);
-    this.nozzle.visible = true;
-  }
-
   private focusInfo() {
     const r = this.model;
     const def = this.printerDef;
@@ -461,10 +410,17 @@ export class Viewer {
     return radius / Math.sin(fit / 2);
   }
 
+  /** Default camera direction; steeper on tall (phone) screens so the plate fills them. */
+  private isoDir() {
+    const w = (this.container.clientWidth || 1) - this.insets.right;
+    const h = (this.container.clientHeight || 1) - this.insets.bottom;
+    return (w / h < 0.85 ? new THREE.Vector3(0, -0.5, 0.87) : new THREE.Vector3(0, -0.78, 0.62)).normalize();
+  }
+
   private computeHome() {
     const { target, radius } = this.focusInfo();
     const d = this.fitDistance(radius);
-    const dir = new THREE.Vector3(0.0, -0.78, 0.62).normalize();
+    const dir = this.isoDir();
     this.home.target.copy(target);
     this.home.pos.copy(target).addScaledVector(dir, d);
   }
@@ -526,8 +482,6 @@ export class Viewer {
       this.camera.near = Math.max(0.1, dist / 500);
       this.camera.far = dist * 20 + 2000;
       this.camera.updateProjectionMatrix();
-      // keep the nozzle marker a readable size at any zoom
-      if (this.nozzle.visible) this.nozzle.scale.setScalar(THREE.MathUtils.clamp(dist / 260, 0.35, 4));
       this.renderer.render(this.scene, this.camera);
     }
   };

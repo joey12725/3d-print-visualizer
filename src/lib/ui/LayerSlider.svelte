@@ -31,7 +31,6 @@
     else k = Math.abs(v - app.layerLo) < Math.abs(v - app.layerHi) ? 'lo' : 'hi';
     drag = { kind: k, startVal: v, startLo: app.layerLo, startHi: app.layerHi, pointer: e.pointerId };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    app.playing = false;
     move(e);
   }
 

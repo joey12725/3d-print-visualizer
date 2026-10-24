@@ -2,13 +2,12 @@
   import { onMount } from 'svelte';
   import { app } from './lib/state.svelte';
   import { formatDuration } from './lib/render/colors';
-  import { filamentCost } from './lib/pricing';
-  import { fetchSharedGcode, loadShareManifest } from './lib/share/share';
+    import { fetchSharedGcode, loadShareManifest } from './lib/share/share';
   import { PRINTERS } from './lib/render/printers';
   import Stage from './lib/ui/Stage.svelte';
   import Panel from './lib/ui/Panel.svelte';
   import LayerSlider from './lib/ui/LayerSlider.svelte';
-  import Timeline from './lib/ui/Timeline.svelte';
+  import PrinterBadge from './lib/ui/PrinterBadge.svelte';
   import ViewControls from './lib/ui/ViewControls.svelte';
   import InspectCard from './lib/ui/InspectCard.svelte';
   import Icon from './lib/ui/Icon.svelte';
@@ -24,9 +23,7 @@
   const summary = $derived.by(() => {
     if (!r) return null;
     const g = r.filaments.reduce((a, f) => a + f.weightG, 0);
-    const costs = r.filaments.map((f) => filamentCost(f, app.prices));
-    const cost = costs.reduce<number>((a, c) => a + (c ?? 0), 0);
-    return { time: formatDuration(r.totalTimeS, false), g: `${g.toFixed(1)} g`, cost: costs.some((c) => c !== null) ? `$${cost.toFixed(2)}` : null };
+    return { time: formatDuration(r.totalTimeS, false), g: `${g.toFixed(1)} g` };
   });
 
   onMount(() => {
@@ -78,27 +75,10 @@
     const step = e.shiftKey ? 10 : 1;
     switch (e.key) {
       case 'ArrowUp':
-        app.playing = false;
         app.setLayers(app.layerLo, Math.min(r.layers.count - 1, app.layerHi + step));
         break;
       case 'ArrowDown':
-        app.playing = false;
         app.setLayers(Math.min(app.layerLo, Math.max(0, app.layerHi - step)), Math.max(0, app.layerHi - step));
-        break;
-      case 'ArrowRight': {
-        app.playing = false;
-        const [, b] = app.layerMoveBounds(app.layerHi);
-        app.moveHi = Math.min(b, app.moveHi + step);
-        break;
-      }
-      case 'ArrowLeft': {
-        app.playing = false;
-        const [a] = app.layerMoveBounds(app.layerHi);
-        app.moveHi = Math.max(a, Math.min(app.moveHi, app.layerMoveBounds(app.layerHi)[1]) - step);
-        break;
-      }
-      case ' ':
-        (document.querySelector('.timeline .play') as HTMLButtonElement | null)?.click();
         break;
       case 'r':
       case 'R':
@@ -145,38 +125,18 @@
   ondragover={(e) => e.preventDefault()}
   ondrop={onDrop}
 >
-  {#if !isMobile}
+  {#if !isMobile && r}
     <aside class="side">
-      <header class="brand">
-        <span class="logo">3P</span>
-        <span>Print Preview</span>
-      </header>
-      <div class="side-scroll">
-        {#if r}
-          <Panel onOpenFile={() => fileInput.click()} />
-        {:else}
-          <div class="side-empty">
-            <p>Open a sliced file to see layers, line types, speeds, print time, filament and cost.</p>
-            <p class="small">Your files are processed right here in the browser.</p>
-          </div>
-        {/if}
-      </div>
+      <Panel onOpenFile={() => fileInput.click()} />
     </aside>
   {/if}
 
   <main class="stage">
-    <Stage bind:this={stage} insets={!r ? { right: 0, bottom: 0 } : isMobile ? { right: 0, bottom: 200 } : { right: 70, bottom: 80 }} />
+    <Stage bind:this={stage} insets={!r ? { right: 0, bottom: 0 } : isMobile ? { right: 0, bottom: 150 } : { right: 70, bottom: 0 }} />
 
-    {#if isMobile}
-      <div class="top-mobile">
-        <span class="logo">3P</span>
-        {#if r}
-          <span class="fname">{r.fileName.replace(/\.gcode$/i, '')}</span>
-        {:else}
-          <span class="fname">Print Preview</span>
-        {/if}
-      </div>
-    {/if}
+    <div class="printer-badge">
+      <PrinterBadge />
+    </div>
 
     <div class="view-controls">
       <ViewControls onReset={() => stage.resetView()} onView={(p) => stage.setView(p)} />
@@ -186,9 +146,9 @@
       <div class="layers-v">
         <LayerSlider vertical />
       </div>
-      <div class="bottom-bar">
-        <Timeline />
-      </div>
+      {#if !app.isFullView}
+        <button class="all-layers desktop" onclick={() => app.showAll()} title="Show all layers (A)">All layers</button>
+      {/if}
     {/if}
 
     {#if app.inspect}
@@ -254,8 +214,10 @@
 
     {#if isMobile && r}
       <div class="mobile-dock" class:hidden={sheetOpen}>
-        <LayerSlider vertical={false} />
-        <Timeline compact />
+        {#if !app.isFullView}
+          <button class="all-layers" onclick={() => app.showAll()}>All</button>
+        {/if}
+        <div class="dock-slider"><LayerSlider vertical={false} /></div>
       </div>
     {/if}
   </main>
@@ -264,12 +226,19 @@
     <div class="sheet" class:open={sheetOpen}>
       <div class="sheet-head" role="button" tabindex="0" onpointerdown={sheetDown} onpointerup={sheetUp} onkeydown={(e) => e.key === 'Enter' && (sheetOpen = !sheetOpen)} aria-expanded={sheetOpen}>
         <span class="grabber"></span>
-        {#if summary}
-          <div class="sum">
-            <span><b>{summary.time}</b></span>
-            <span>{summary.g}</span>
-            {#if summary.cost}<span>{summary.cost}</span>{/if}
+        {#if summary && r}
+          <div class="peek-name">
+            <span>{r.fileName.replace(/\.gcode$/i, '')}</span>
             <span class="chev"><Icon name={sheetOpen ? 'chevronDown' : 'chevronUp'} size={18} /></span>
+          </div>
+          <div class="sum">
+            <span class="big">{summary.time}</span>
+            <span class="big">{summary.g}</span>
+            <span class="chips">
+              {#each r.filaments as f (f.index)}
+                <span class="chip"><span class="sw" style={`background:${f.color}`}></span>{r.filaments.length > 1 ? `${f.weightG.toFixed(1)} g` : f.type}</span>
+              {/each}
+            </span>
           </div>
         {/if}
       </div>
@@ -285,7 +254,7 @@
 <style>
   .app {
     display: grid;
-    grid-template-columns: 340px 1fr;
+    grid-template-columns: auto 1fr;
     height: 100%;
     height: 100dvh;
   }
@@ -293,48 +262,15 @@
     grid-template-columns: 1fr;
   }
   .side {
-    display: flex;
-    flex-direction: column;
+    width: 340px;
     min-height: 0;
     background: var(--panel-solid);
     border-right: 1px solid var(--line);
     z-index: 2;
   }
-  .brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 14px 16px;
-    font-weight: 700;
-    font-size: 15px;
-    letter-spacing: -0.01em;
-    border-bottom: 1px solid var(--line);
-  }
-  .logo {
-    display: grid;
-    place-items: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
-    background: #0d9488;
-    color: #fff;
-    font-size: 12px;
-    font-weight: 700;
-    flex: none;
-  }
-  .side-scroll {
-    flex: 1;
+  .side {
     overflow-y: auto;
     overscroll-behavior: contain;
-  }
-  .side-empty {
-    padding: 20px 16px;
-    color: var(--muted);
-    font-size: 14px;
-    line-height: 1.5;
-  }
-  .side-empty .small {
-    font-size: 12.5px;
   }
   .stage {
     position: relative;
@@ -352,16 +288,36 @@
   .layers-v {
     position: absolute;
     right: 10px;
-    top: 104px;
-    bottom: 90px;
+    top: 136px;
+    bottom: 60px;
     z-index: 2;
   }
-  .bottom-bar {
+  .printer-badge {
     position: absolute;
-    left: 50%;
-    bottom: 16px;
-    transform: translateX(-50%);
-    width: min(720px, calc(100% - 120px));
+    top: 14px;
+    left: 14px;
+    z-index: 3;
+  }
+  .mobile .printer-badge {
+    top: calc(10px + env(safe-area-inset-top, 0px));
+    left: 10px;
+  }
+  .all-layers {
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--accent);
+    border-radius: 99px;
+    padding: 6px 11px;
+    font-size: 12.5px;
+    font-weight: 650;
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    flex: none;
+  }
+  .all-layers.desktop {
+    position: absolute;
+    right: 10px;
+    bottom: 22px;
     z-index: 2;
   }
   .inspect {
@@ -371,7 +327,7 @@
     z-index: 4;
   }
   .mobile .inspect {
-    top: 60px;
+    top: 56px;
     left: 10px;
   }
   .empty {
@@ -555,25 +511,6 @@
   }
 
   /* ---------- phone */
-  .top-mobile {
-    position: absolute;
-    top: calc(10px + env(safe-area-inset-top, 0px));
-    left: 10px;
-    right: 150px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    z-index: 3;
-    pointer-events: none;
-  }
-  .top-mobile .fname {
-    font-weight: 650;
-    font-size: 14px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
-  }
   .mobile .view-controls {
     top: calc(10px + env(safe-area-inset-top, 0px));
     right: 10px;
@@ -582,12 +519,19 @@
     position: absolute;
     left: 8px;
     right: 8px;
-    bottom: calc(64px + var(--safe-bottom));
+    bottom: calc(92px + var(--safe-bottom));
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    align-items: flex-end;
+    gap: 6px;
     z-index: 3;
     transition: opacity 0.2s;
+  }
+  .dock-slider {
+    flex: 1;
+    min-width: 0;
+  }
+  .mobile-dock .all-layers {
+    margin-bottom: 2px;
   }
   .mobile-dock.hidden {
     opacity: 0;
@@ -606,7 +550,7 @@
     display: flex;
     flex-direction: column;
     height: 80dvh;
-    transform: translateY(calc(80dvh - 56px - var(--safe-bottom)));
+    transform: translateY(calc(80dvh - 84px - var(--safe-bottom)));
     transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
   .sheet.open {
@@ -614,39 +558,80 @@
   }
   .sheet-head {
     flex: none;
-    height: 56px;
+    height: 84px;
     padding: 6px 16px 0;
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: stretch;
     cursor: pointer;
     touch-action: none;
     user-select: none;
     -webkit-user-select: none;
   }
   .grabber {
+    align-self: center;
+    flex: none;
     width: 38px;
     height: 5px;
     border-radius: 99px;
     background: rgba(255, 255, 255, 0.22);
     margin-bottom: 8px;
   }
+  .peek-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+  .peek-name span:first-child {
+    flex: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   .sum {
     display: flex;
     align-items: center;
     gap: 14px;
-    width: 100%;
-    font-size: 14px;
-    color: var(--muted);
     font-variant-numeric: tabular-nums;
+    min-width: 0;
   }
-  .sum b {
+  .sum .big {
+    font-size: 19px;
+    font-weight: 700;
     color: var(--text);
-    font-size: 16px;
+    white-space: nowrap;
+  }
+  .chips {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    min-width: 0;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12.5px;
+    color: var(--muted);
+    background: var(--chip);
+    border-radius: 99px;
+    padding: 3px 8px 3px 4px;
+    white-space: nowrap;
+  }
+  .chip .sw {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.3);
   }
   .chev {
-    margin-left: auto;
     display: grid;
+    flex: none;
   }
   .sheet-body {
     flex: 1;

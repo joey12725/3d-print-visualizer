@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run",
-    "deploy": "npm run build && ./scripts/deploy.sh"
+    "deploy": "npm run build && ./scripts/deploy.sh",
+    "share": "scripts/share.sh"
   },
   "dependencies": {
     "fflate": "^0.8.3",

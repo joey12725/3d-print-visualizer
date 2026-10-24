@@ -17,7 +17,7 @@ interface Prefs {
   printer: PrinterId | 'auto';
   colorMode: ColorMode;
   options: ViewOptions;
-  playSpeed: number;
+  detailsOpen: boolean;
 }
 
 function loadPrefs(): Prefs {
@@ -25,7 +25,7 @@ function loadPrefs(): Prefs {
     printer: 'auto',
     colorMode: 'feature',
     options: { tubes: true, travels: false, retractions: false, ghost: false, volume: true },
-    playSpeed: 200,
+    detailsOpen: false,
   };
   try {
     const s = JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}');
@@ -53,10 +53,10 @@ class AppState {
 
   layerLo = $state(0);
   layerHi = $state(0);
-  /** absolute move index shown at the top of the range */
+  /** absolute move index shown at the top of the range (end of the top layer) */
   moveHi = $state(0);
-  playing = $state(false);
-  playSpeed = $state(200);
+  /** the "Details" section (colour modes, display options, slicer info) */
+  detailsOpen = $state(false);
 
   inspect = $state<{ index: number } | null>(null);
   prices = $state<Record<string, number>>(loadPrices());
@@ -71,7 +71,7 @@ class AppState {
     this.printerPref = p.printer;
     this.colorMode = p.colorMode;
     this.options = p.options;
-    this.playSpeed = p.playSpeed;
+    this.detailsOpen = p.detailsOpen;
   }
 
   get printerId(): PrinterId {
@@ -88,7 +88,7 @@ class AppState {
   persist() {
     localStorage.setItem(
       PREFS_KEY,
-      JSON.stringify({ printer: this.printerPref, colorMode: this.colorMode, options: this.options, playSpeed: this.playSpeed } satisfies Prefs),
+      JSON.stringify({ printer: this.printerPref, colorMode: this.colorMode, options: this.options, detailsOpen: this.detailsOpen } satisfies Prefs),
     );
   }
 
@@ -125,7 +125,6 @@ class AppState {
   showAll() {
     const r = this.result;
     if (!r) return;
-    this.playing = false;
     this.setLayers(0, r.layers.count - 1);
     this.moveHi = r.moveCount;
   }
@@ -137,7 +136,6 @@ class AppState {
 
   async open(file: Blob, name: string, plate?: string) {
     this.error = null;
-    this.playing = false;
     this.inspect = null;
     this.choosePlates = null;
     this.loading = { label: `Reading ${name}`, fraction: 0 };
