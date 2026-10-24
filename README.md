@@ -4,7 +4,7 @@
 
 A fast, phone-friendly 3D viewer for already-sliced G-code, built for a **Creality K2 Plus** and a **Bambu Lab A1**.
 
-**Live:** https://sleek-nirvana-3mxh.here.now/ (password protected; see [Hosting](#hosting-on-herenow))
+**Live:** https://sleek-nirvana-3mxh.here.now/
 
 - Drop a `.gcode`, `.gcode.3mf` (Bambu "Export plate sliced file") or `.gcode.gz`. Parsing happens in your browser.
 - Each printer has its own build plate model: the K2 Plus 350 mm plate with a pull tab and leveling screws, and the A1 256 mm plate with alignment pins. The plate surface follows the plate type in the file (Textured PEI, Cool Plate, Smooth/High Temp, Engineering). Other printers get a plate sized from the G-code.
@@ -30,7 +30,7 @@ A fast, phone-friendly 3D viewer for already-sliced G-code, built for a **Creali
 ## How sharing and expiry work
 
 ```
-Main site (permanent, password)          Share site (public link, TTL 14 days)
+Main site (permanent, public)            Share site (public link, TTL 14 days)
 ┌──────────────────────────────┐         ┌──────────────────────────────┐
 │ index.html (the whole viewer)│  copy → │ index.html                   │
 │ .herenow/proxy.json          │         │ print.gcode.gz               │
@@ -50,7 +50,7 @@ Share links you've made are listed in the app (stored in that browser's localSto
 ## Hosting on here.now
 
 - Site: `sleek-nirvana-3mxh` (slug recorded in `herenow.json`)
-- Password protected, because its proxy routes can publish sites to the account. Share sites are public links. To change or remove the password, use the here.now dashboard or `PATCH /api/v1/publish/sleek-nirvana-3mxh/metadata {"password": …}`.
+- Public, no password. Its proxy routes can create sites on the account, so anyone who finds the URL could create share sites (rate limited to 30/hour per IP, and they expire after 14 days like any share). To lock it down, set a password with `PATCH /api/v1/publish/sleek-nirvana-3mxh/metadata {"password": "…"}`. The password also protects the proxy routes.
 - Account variable `GCODE_VIZ_PUBLISH_KEY` holds a dedicated API key named `3d-print-visualizer-proxy`, pinned to the `here.now` upstream. You can revoke that key from the dashboard at any time; sharing stops working, but nothing else is affected.
 
 Deploy:
