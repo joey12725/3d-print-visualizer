@@ -54,6 +54,20 @@ and filament. You don't need to describe the model. The user will look at it.
 
 Without `--json` the script prints only the URL.
 
+## Expiry and cleanup
+
+Every preview is filed in the **Print previews** folder on here.now. here.now stops serving a
+preview once it expires, but the site record stays on the account until it's deleted.
+`share.sh` deletes expired previews from that folder every time it runs, so normal use keeps
+the account clean. To clean up on demand:
+
+```sh
+scripts/cleanup-expired.sh --dry-run   # list expired previews
+scripts/cleanup-expired.sh             # delete them
+```
+
+It only ever touches sites in the Print previews folder whose expiry has passed.
+
 ## Requirements
 
 - `curl`, `jq`, `gzip`, `unzip`, `base64` (all standard on macOS and most Linux distributions).
@@ -76,4 +90,4 @@ Without `--json` the script prints only the URL.
 
 - Don't paste G-code contents into chat, and don't upload the file anywhere else.
 - Don't create permanent sites for previews. Keep the TTL.
-- Don't delete other sites on the here.now account. Previews clean themselves up.
+- Don't delete other sites on the here.now account. `cleanup-expired.sh` handles expired previews.

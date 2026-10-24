@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Publish a sliced G-code file as a self-contained preview link on here.now that
-# deletes itself after 14 days. Prints the link (or JSON with --json).
+# expires after 14 days. Prints the link (or JSON with --json). Links are filed in the
+# "Print previews" folder, and expired ones are deleted (scripts/cleanup-expired.sh).
 #
 #   scripts/share.sh path/to/print.gcode
 #   scripts/share.sh job.gcode.3mf --plate 2 --json
@@ -116,9 +117,9 @@ jq -n --arg name "$NAME" --arg c "$NOW" --arg e "$EXP" --arg p "$PRINTER" --arg 
 
 size() { wc -c < "$1" | tr -d ' '; }
 TITLE="$(echo "${NAME%.gcode}" | cut -c1-60)"
-BODY=$(jq -n --argjson ttl "$TTL" --arg dn "G-code · $TITLE" --arg dd "Shared 3D print preview (expires ${EXP:0:10})" \
+BODY=$(jq -n --argjson ttl "$TTL" --arg dn "G-code · $TITLE" --arg dd "Shared 3D print preview (expires ${EXP:0:10})" --arg folder "Print previews" \
   --argjson s1 "$(size "$HTML")" --argjson s2 "$(size "$WORK/print.gcode.gz")" --argjson s3 "$(size "$WORK/share.json")" \
-  '{ttlSeconds:$ttl, displayName:($dn[0:80]), displayDescription:$dd, files:[
+  '{ttlSeconds:$ttl, displayName:($dn[0:80]), displayDescription:$dd, folder:$folder, files:[
      {path:"index.html", size:$s1, contentType:"text/html; charset=utf-8"},
      {path:"print.gcode.gz", size:$s2, contentType:"application/octet-stream"},
      {path:"share.json", size:$s3, contentType:"application/json; charset=utf-8"}]}')
@@ -137,6 +138,9 @@ FIN=$(curl -sS -X POST "$API/publish/$SLUG/finalize" "${H[@]}" -d "{\"versionId\
 echo "$FIN" | jq -e '.success' > /dev/null || die "finalize failed: $FIN"
 URL=$(echo "$FIN" | jq -r .siteUrl)
 EXP=$(echo "$FIN" | jq -r ".publishStatus.expiresAt // \"$EXP\"")
+
+# expired previews stop serving but linger on the account; tidy them up while we're here
+"$ROOT/scripts/cleanup-expired.sh" --quiet > /dev/null 2>&1 || true
 
 if [ "$JSON" = 1 ]; then
   jq -n --arg url "$URL" --arg slug "$SLUG" --arg exp "$EXP" --arg name "$NAME" --arg printer "$PRINTER" \

@@ -9,6 +9,7 @@
 | API key behind it | `3d-print-visualizer-proxy` (here.now dashboard → API keys) |
 | Proxy manifest | `public/.herenow/proxy.json` → `/api/share/create`, `/api/share/site/*` |
 | Preview lifetime | `ttlSeconds = 1209600` (14 days), set on every share |
+| Dashboard folder | `Print previews` (every share is filed here) |
 
 ## A preview site
 
@@ -32,6 +33,14 @@ and the page shows the file picker instead.
 2. **In the app**: the "Create 14-day link" button on the main site. The browser calls the site's own proxy
    routes, which add `Authorization: Bearer ${GCODE_VIZ_PUBLISH_KEY}` on here.now's servers, so the key never
    reaches the browser. The browser then uploads straight to here.now storage.
+
+## Expiry: what actually happens
+
+Tested on 2026-10-24: once a site's `expiresAt` passes, here.now returns **404** for the site and its
+files, but the site record stays on the account (`GET /api/v1/publish/:slug` still answers and it still
+shows in listings). `scripts/cleanup-expired.sh` lists the `Print previews` folder and deletes every
+site whose `expiresAt` is in the past. `share.sh` runs it quietly after each new share. To run it on a
+schedule, call it from cron or your agent's scheduler.
 
 ## Security notes
 

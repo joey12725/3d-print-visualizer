@@ -164,6 +164,8 @@ export async function createShare(opts: {
     ttlSeconds: SHARE_TTL_S,
     displayName: `G-code · ${title}`.slice(0, 80),
     displayDescription: `Shared 3D print preview (expires ${manifest.expiresAt.slice(0, 10)})`,
+    // all previews live in one dashboard folder, which is what cleanup-expired.sh sweeps
+    folder: 'Print previews',
     files: files.map((f) => ({ path: f.path, size: f.blob.size, contentType: f.contentType })),
   });
 

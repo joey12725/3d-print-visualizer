@@ -42,7 +42,9 @@ npm run deploy     # build + publish to the same here.now site (URL doesn't chan
 - Never commit secrets. The here.now API key lives in `~/.herenow/credentials` or `$HERENOW_API_KEY`.
   The site's proxy routes use the account variable `GCODE_VIZ_PUBLISH_KEY`, which holds a dedicated,
   revocable key named `3d-print-visualizer-proxy`.
-- Previews must keep a TTL (14 days by default). here.now deletes them; there's no cleanup job.
+- Previews must keep a TTL (14 days by default) and be filed in the `Print previews` folder.
+  here.now stops serving expired sites but keeps their records, so `scripts/cleanup-expired.sh` deletes
+  expired previews in that folder. `share.sh` runs it automatically every time.
 - The build must stay a single self-contained `index.html` (vite-plugin-singlefile), because each share
   link ships its own copy of the viewer.
 - `public/.herenow/proxy.json` must keep the `/api/share/*` routes, or the in-app

@@ -5,7 +5,7 @@
 Check a sliced 3D print on your phone or laptop before it prints. Built for a **Creality K2 Plus** and a **Bambu Lab A1**.
 
 - **Main viewer:** https://sleek-nirvana-3mxh.here.now/ (drop in any `.gcode`, `.gcode.3mf` or `.gcode.gz`)
-- **Preview links:** one command (or one button) turns a G-code file into its own link that opens straight into the model. here.now deletes it after 14 days.
+- **Preview links:** one command (or one button) turns a G-code file into its own link that opens straight into the model. Links expire after 14 days, and `scripts/cleanup-expired.sh` (run automatically by `share.sh`) removes them from the account.
 
 ```sh
 scripts/share.sh print.gcode --json
