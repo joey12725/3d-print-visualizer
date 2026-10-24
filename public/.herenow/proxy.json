@@ -1,0 +1,22 @@
+{
+  "proxies": {
+    "/api/share/create": {
+      "upstream": "https://here.now/api/v1/publish",
+      "method": "POST",
+      "rateLimit": "30/hour/ip",
+      "headers": {
+        "Authorization": "Bearer ${GCODE_VIZ_PUBLISH_KEY}",
+        "X-HereNow-Client": "claude-code/print-viewer"
+      }
+    },
+    "/api/share/site/*": {
+      "upstream": "https://here.now/api/v1/publish",
+      "method": "POST",
+      "rateLimit": "60/hour/ip",
+      "headers": {
+        "Authorization": "Bearer ${GCODE_VIZ_PUBLISH_KEY}",
+        "X-HereNow-Client": "claude-code/print-viewer"
+      }
+    }
+  }
+}
