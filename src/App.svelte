@@ -252,16 +252,14 @@
 </div>
 
 <style>
+  /* flex, not grid: the sidebar only exists once a file is open */
   .app {
-    display: grid;
-    grid-template-columns: auto 1fr;
+    display: flex;
     height: 100%;
     height: 100dvh;
   }
-  .app.mobile {
-    grid-template-columns: 1fr;
-  }
   .side {
+    flex: none;
     width: 340px;
     min-height: 0;
     background: var(--panel-solid);
@@ -273,6 +271,7 @@
     overscroll-behavior: contain;
   }
   .stage {
+    flex: 1;
     position: relative;
     min-width: 0;
     min-height: 0;

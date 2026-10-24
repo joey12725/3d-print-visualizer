@@ -376,21 +376,30 @@ export class Viewer {
     this.requestRender();
   }
 
+  /** What the home view frames: the whole plate (layout matters), plus anything taller. */
   private focusInfo() {
     const r = this.model;
     const def = this.printerDef;
-    if (r && r.ext.count) {
-      const { min, max } = r.bounds;
-      const target = new THREE.Vector3((min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2 * 0.6);
-      const size = Math.hypot(max[0] - min[0], max[1] - min[1], max[2] - min[2]);
-      // keep the plate in view for small prints
-      const bed = def ? Math.hypot(def.max[0] - def.min[0], def.max[1] - def.min[1]) : size;
-      const radius = Math.max(size * 0.75, bed * 0.42);
+    const hasModel = !!r && r.ext.count > 0;
+    if (def) {
+      const cx = (def.min[0] + def.max[0]) / 2;
+      const cy = (def.min[1] + def.max[1]) / 2;
+      const top = hasModel ? r!.bounds.max[2] : 0;
+      const target = new THREE.Vector3(cx, cy, top * 0.35);
+      // half the plate diagonal plus the plate's margin, so the edges stay in frame
+      let radius = Math.hypot(def.max[0] - def.min[0], def.max[1] - def.min[1]) / 2 + 12;
+      if (hasModel) {
+        const { min, max } = r!.bounds;
+        for (const x of [min[0], max[0]])
+          for (const y of [min[1], max[1]])
+            for (const z of [min[2], max[2]]) radius = Math.max(radius, target.distanceTo(new THREE.Vector3(x, y, z)));
+      }
       return { target, radius };
     }
-    if (def) {
-      const target = new THREE.Vector3((def.min[0] + def.max[0]) / 2, (def.min[1] + def.max[1]) / 2, 0);
-      return { target, radius: Math.hypot(def.max[0] - def.min[0], def.max[1] - def.min[1]) * 0.55 };
+    if (hasModel) {
+      const { min, max } = r!.bounds;
+      const target = new THREE.Vector3((min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2);
+      return { target, radius: Math.hypot(max[0] - min[0], max[1] - min[1], max[2] - min[2]) / 2 };
     }
     return { target: new THREE.Vector3(), radius: 150 };
   }

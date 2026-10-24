@@ -33,7 +33,9 @@ npm run deploy     # build + publish to the same here.now site (URL doesn't chan
 
 - To test with real slicer output, run `GCODE_SAMPLES=a.gcode:b.gcode npm test`, which parses those files and prints a summary.
 - Deploying updates the viewer for future links. Existing links keep the viewer copy they were created with.
-- Before you deploy, check both layouts in a browser: desktop, and a phone-sized viewport around 430×932.
+- After deploying, open the live main URL and check four states: desktop and a phone-sized viewport
+  (around 430×932), each with **no file open** and **with a file open**. The whole plate should be in frame,
+  and nothing should be blank or cut off. Checking a share link alone isn't enough, because it skips the empty state.
 
 ## Ground rules
 
