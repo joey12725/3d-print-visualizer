@@ -27,7 +27,9 @@
   });
 
   onMount(() => {
-    const mq = matchMedia('(max-width: 899px)');
+    // Phone layout for narrow screens, and for touch screens that are short (a phone held
+    // sideways is ~930px wide but only ~430px tall, too small for the sidebar layout).
+    const mq = matchMedia('(max-width: 899px), (pointer: coarse) and (max-height: 599px)');
     const upd = () => (isMobile = mq.matches);
     upd();
     mq.addEventListener('change', upd);

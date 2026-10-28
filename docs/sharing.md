@@ -34,6 +34,13 @@ and the page shows the file picker instead.
    routes, which add `Authorization: Bearer ${GCODE_VIZ_PUBLISH_KEY}` on here.now's servers, so the key never
    reaches the browser. The browser then uploads straight to here.now storage.
 
+## Updating old links
+
+Each preview ships the viewer as it was when the link was made. After `npm run deploy`,
+`scripts/refresh-previews.sh` swaps the deployed `index.html` into every unexpired preview in `Print previews`
+(or just the slugs you pass). It re-uploads the link's existing `print.gcode.gz` and `share.json` unchanged and
+puts the original expiry back if the update moved it.
+
 ## Expiry: what actually happens
 
 Tested on 2026-10-24: once a site's `expiresAt` passes, here.now returns **404** for the site and its

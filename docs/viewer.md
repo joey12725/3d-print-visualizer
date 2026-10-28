@@ -4,6 +4,9 @@
 grams, length and cost, plus the layer count, height and total filament cost. On a phone this lives in the
 bottom sheet. Its collapsed bar shows the name, time, grams and filament colors.
 
+Phones use the phone layout in both orientations: any screen under 900 px wide, or a touch screen under
+600 px tall (a phone held sideways), gets the bottom sheet and a horizontal layer slider along the bottom.
+
 **Printer chip** (top left): shows which printer the plate is for. Tap it to switch.
 
 | Printer | Plate | Body |
