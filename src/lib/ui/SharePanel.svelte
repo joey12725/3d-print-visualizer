@@ -1,6 +1,6 @@
 <script lang="ts">
   import { app } from '../state.svelte';
-  import { canShare, createShare, forgetShare, savedShares, SHARE_TTL_DAYS, SHARE_GCODE } from '../share/share';
+  import { canShare, createShare, downloadSharedGcode, forgetShare, savedShares, SHARE_TTL_DAYS } from '../share/share';
   import Icon from './Icon.svelte';
 
   let shares = $state(savedShares());
@@ -44,6 +44,18 @@
     }
   }
 
+  let downloading = $state(false);
+  async function download(name: string) {
+    downloading = true;
+    try {
+      await downloadSharedGcode(name, app.file);
+    } catch (e) {
+      app.error = `Couldn't prepare the G-code: ${e instanceof Error ? e.message : String(e)}`;
+    } finally {
+      downloading = false;
+    }
+  }
+
   function remove(url: string) {
     forgetShare(url);
     shares = savedShares();
@@ -70,9 +82,9 @@
     <button class="btn" onclick={() => copy(location.href.split('#')[0])}>
       <Icon name={copied ? 'check' : 'link'} size={16} />{copied ? 'Copied' : 'Copy link'}
     </button>
-    <a class="btn secondary" href={`./${SHARE_GCODE}`} download={m.name.replace(/\.gcode$/i, '') + '.gcode.gz'}>
-      <Icon name="download" size={16} />G-code
-    </a>
+    <button class="btn secondary" onclick={() => download(m.name)} disabled={downloading}>
+      <Icon name="download" size={16} />{downloading ? 'Preparing…' : 'Download G-code'}
+    </button>
   </div>
 {:else if enabled}
   {#if app.share.status === 'working'}

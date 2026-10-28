@@ -137,3 +137,14 @@ describe('helpers', () => {
     expect(filamentCost({ ...f, type: 'ABS' }, prices)).toBeNull();
   });
 });
+
+describe('shared G-code downloads', async () => {
+  const { gcodeFileName } = await import('../src/lib/share/share');
+  it('always produces a clean .gcode file name', () => {
+    expect(gcodeFileName('Blower MOUNT - 5 gauges + collar.gcode')).toBe('Blower MOUNT - 5 gauges + collar.gcode');
+    expect(gcodeFileName('plate.gcode.gz')).toBe('plate.gcode');
+    expect(gcodeFileName('job · plate_2')).toBe('job · plate_2.gcode');
+    expect(gcodeFileName('a/b:c?.gcode')).toBe('a b c .gcode'.replace(' .gcode', '.gcode'));
+    expect(gcodeFileName('')).toBe('print.gcode');
+  });
+});

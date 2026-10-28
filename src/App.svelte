@@ -17,6 +17,9 @@
   let dragDepth = $state(0);
   let sheetOpen = $state(false);
   let isMobile = $state(false);
+  let isPortrait = $state(false);
+  /** layer slider along the bottom on any vertical screen (phone or portrait monitor) */
+  const sliderBottom = $derived(isMobile || isPortrait);
   let booting = $state(true);
 
   const r = $derived(app.result);
@@ -27,14 +30,22 @@
   });
 
   onMount(() => {
-    // Phone layout for narrow screens, and for touch screens that are short (a phone held
-    // sideways is ~930px wide but only ~430px tall, too small for the sidebar layout).
-    const mq = matchMedia('(max-width: 899px), (pointer: coarse) and (max-height: 599px)');
-    const upd = () => (isMobile = mq.matches);
+    // Phone layout (bottom sheet) below 900px wide; separately, the layer slider goes along
+    // the bottom whenever the screen is vertical, and on the side when it's horizontal.
+    const mq = matchMedia('(max-width: 899px)');
+    const portrait = matchMedia('(orientation: portrait)');
+    const upd = () => {
+      isMobile = mq.matches;
+      isPortrait = portrait.matches;
+    };
     upd();
     mq.addEventListener('change', upd);
+    portrait.addEventListener('change', upd);
     boot();
-    return () => mq.removeEventListener('change', upd);
+    return () => {
+      mq.removeEventListener('change', upd);
+      portrait.removeEventListener('change', upd);
+    };
   });
 
   async function boot() {
@@ -134,7 +145,7 @@
   {/if}
 
   <main class="stage">
-    <Stage bind:this={stage} insets={!r ? { right: 0, bottom: 0 } : isMobile ? { right: 0, bottom: 150 } : { right: 70, bottom: 0 }} />
+    <Stage bind:this={stage} insets={!r ? { right: 0, bottom: 0 } : isMobile ? { right: 0, bottom: 150 } : sliderBottom ? { right: 0, bottom: 72 } : { right: 70, bottom: 0 }} />
 
     <div class="printer-badge">
       <PrinterBadge />
@@ -144,13 +155,22 @@
       <ViewControls onReset={() => stage.resetView()} onView={(p) => stage.setView(p)} />
     </div>
 
-    {#if r && !isMobile}
+    {#if r && !isMobile && !sliderBottom}
       <div class="layers-v">
         <LayerSlider vertical />
       </div>
       {#if !app.isFullView}
         <button class="all-layers desktop" onclick={() => app.showAll()} title="Show all layers (A)">All layers</button>
       {/if}
+    {/if}
+
+    {#if r && !isMobile && sliderBottom}
+      <div class="layers-h">
+        {#if !app.isFullView}
+          <button class="all-layers" onclick={() => app.showAll()} title="Show all layers (A)">All layers</button>
+        {/if}
+        <div class="dock-slider"><LayerSlider vertical={false} /></div>
+      </div>
     {/if}
 
     {#if app.inspect}
@@ -314,6 +334,19 @@
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
     flex: none;
+  }
+  .layers-h {
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: 14px;
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    z-index: 2;
+  }
+  .layers-h .all-layers {
+    margin-bottom: 2px;
   }
   .all-layers.desktop {
     position: absolute;

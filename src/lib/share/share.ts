@@ -62,8 +62,40 @@ export async function loadShareManifest(): Promise<ShareManifest | null> {
   }
 }
 
+/** "My print.gcode" → a safe file name that always ends in .gcode */
+export function gcodeFileName(name: string): string {
+  const base = name
+    .replace(/\.gcode(\.gz)?$/i, '')
+    .replace(/[\/\\:*?"<>|\x00-\x1f]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return `${base || 'print'}.gcode`;
+}
+
+/**
+ * Save the shared print as a plain .gcode file. `gz` is the already-downloaded
+ * print.gcode.gz (if we have it); it's decompressed here so the user gets G-code,
+ * not an archive.
+ */
+export async function downloadSharedGcode(name: string, gz?: Blob | null): Promise<void> {
+  let blob = gz ?? (await (await fetch(`./${SHARE_GCODE}`, { cache: 'no-cache' })).blob());
+  const magic = new Uint8Array(await blob.slice(0, 2).arrayBuffer());
+  if (magic[0] === 0x1f && magic[1] === 0x8b) blob = await new Response(blob.stream().pipeThrough(new DecompressionStream('gzip'))).blob();
+  // octet-stream so browsers don't tack ".txt" onto the name
+  const url = URL.createObjectURL(new Blob([blob], { type: 'application/octet-stream' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = gcodeFileName(name);
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
 export async function fetchSharedGcode(onProgress: (f: number) => void): Promise<Blob> {
-  const res = await fetch(`./${SHARE_GCODE}`);
+  // no-cache = revalidate with the server (a cheap 304 when unchanged). here.now lets browsers
+  // reuse files for up to a day, so without this an updated link could show the old print.
+  const res = await fetch(`./${SHARE_GCODE}`, { cache: 'no-cache' });
   if (!res.ok || !res.body) throw new Error(`Could not download the shared G-code (${res.status}). The link may have expired.`);
   const total = Number(res.headers.get('content-length')) || 0;
   const reader = res.body.getReader();
