@@ -4,7 +4,7 @@
 // small manifest, published with a 14 day TTL so here.now deletes it automatically.
 
 import { gzippedGcode } from '../gcode/source';
-import type { PrinterId } from '../render/printers';
+import type { HoloPattern, PrinterId } from '../render/printers';
 
 export const SHARE_TTL_DAYS = 14;
 export const SHARE_TTL_S = SHARE_TTL_DAYS * 24 * 3600;
@@ -17,6 +17,8 @@ export interface ShareManifest {
   createdAt: string;
   expiresAt: string;
   printer: PrinterId;
+  /** smooth-plate look chosen by whoever made the link (absent = the viewer's default) */
+  holo?: HoloPattern;
   bytes: number;
   thumbnail?: string;
 }
@@ -162,6 +164,7 @@ export async function createShare(opts: {
   entry?: string;
   name: string;
   printer: PrinterId;
+  holo?: HoloPattern;
   thumbnail?: string | null;
   onProgress: (p: ShareProgress) => void;
 }): Promise<SavedShare> {
@@ -181,6 +184,7 @@ export async function createShare(opts: {
     createdAt: now.toISOString(),
     expiresAt: new Date(now.getTime() + SHARE_TTL_S * 1000).toISOString(),
     printer: opts.printer,
+    holo: opts.holo,
     bytes: gz.size,
     // keep thumbnails small; big ones bloat every page load
     thumbnail: opts.thumbnail && opts.thumbnail.length < 200_000 ? opts.thumbnail : undefined,

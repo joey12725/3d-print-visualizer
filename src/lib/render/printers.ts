@@ -2,10 +2,12 @@
 //
 // Coordinates are G-code millimetres with Z up. Each printer gets a heated bed, a
 // removable spring-steel plate whose surface depends on the plate type in the G-code,
-// and a faint build-volume outline.
+// and a faint build-volume outline. Smooth plates are drawn as black holographic PEI
+// (see holo.ts); which pattern each printer gets is a user setting.
 
 import * as THREE from 'three';
 import type { SlicerMeta } from '../gcode/types';
+import { applyHolo, HOLO_CELL_MM, HOLO_DOT_MM, HOLO_DOT_R_MM, type HoloPattern } from './holo';
 
 export type PrinterId = 'k2plus' | 'a1' | 'generic';
 
@@ -52,6 +54,25 @@ export function resolvePrinter(id: PrinterId, meta: SlicerMeta | null): PrinterD
 
 // ------------------------------------------------------------------ plate surfaces
 
+export type { HoloPattern } from './holo';
+
+/** Holographic pattern used for smooth plates on each printer, unless the user picks another. */
+export const DEFAULT_HOLO: Record<PrinterId, HoloPattern> = { k2plus: 'circular', a1: 'crosshatch', generic: 'none' };
+
+export const HOLO_LABELS: Record<HoloPattern, string> = {
+  circular: 'Holographic circles',
+  crosshatch: 'Holographic crosshatch',
+  none: 'Plain',
+};
+
+/**
+ * Smooth PEI. Bambu Studio and Creality Print both write it as "High Temp Plate"
+ * (their UI says "Smooth PEI Plate / High Temp Plate").
+ */
+export function isSmoothPlate(bedType: string): boolean {
+  return /high\s*temp|smooth/i.test(bedType);
+}
+
 interface Surface {
   base: string; // main colour
   speckle: [string, string]; // texture noise colours
@@ -62,6 +83,8 @@ interface Surface {
   roughness: number;
   metalness: number;
   label: string;
+  /** bump strength of the powder-coat grain (textured PEI), 0 = none */
+  grain: number;
 }
 
 const SURFACES: Record<string, Surface> = {
@@ -75,6 +98,7 @@ const SURFACES: Record<string, Surface> = {
     roughness: 0.95,
     metalness: 0.15,
     label: 'Textured PEI',
+    grain: 8,
   },
   smoothGold: {
     base: '#8C7230',
@@ -86,6 +110,7 @@ const SURFACES: Record<string, Surface> = {
     roughness: 0.45,
     metalness: 0.45,
     label: 'Smooth PEI',
+    grain: 0,
   },
   cool: {
     base: '#1D1F22',
@@ -97,6 +122,7 @@ const SURFACES: Record<string, Surface> = {
     roughness: 0.7,
     metalness: 0.1,
     label: 'Cool Plate',
+    grain: 0,
   },
   engineering: {
     base: '#2E3134',
@@ -108,6 +134,7 @@ const SURFACES: Record<string, Surface> = {
     roughness: 0.6,
     metalness: 0.25,
     label: 'Engineering Plate',
+    grain: 0,
   },
   // K2 Plus: black textured PEI
   k2: {
@@ -120,6 +147,7 @@ const SURFACES: Record<string, Surface> = {
     roughness: 0.92,
     metalness: 0.1,
     label: 'Textured PEI',
+    grain: 8,
   },
   // A1: bronze / gold textured PEI
   a1: {
@@ -132,6 +160,20 @@ const SURFACES: Record<string, Surface> = {
     roughness: 0.85,
     metalness: 0.35,
     label: 'Textured PEI',
+    grain: 8,
+  },
+  // Smooth PEI on the owner's printers: glossy black (holographic film is added in the shader)
+  smoothBlack: {
+    base: '#0B0B0D',
+    speckle: ['#141417', '#060607'],
+    speckleAmount: 0.05,
+    grid: 'rgba(255,255,255,0.06)',
+    gridMajor: 'rgba(255,255,255,0.15)',
+    logo: 'rgba(255,255,255,0.2)',
+    roughness: 0.32,
+    metalness: 0.2,
+    label: 'Smooth PEI',
+    grain: 0,
   },
 };
 
@@ -142,8 +184,10 @@ const BODY: Record<PrinterId, { bed: string; frame: string }> = {
   generic: { bed: '#2A2C30', frame: '#34373C' },
 };
 
-export function surfaceFor(printer: PrinterId, bedType: string): Surface {
-  // Each printer keeps its own look so it's obvious which machine you're previewing.
+export function surfaceFor(printer: PrinterId, bedType: string, holo: HoloPattern = 'none'): Surface {
+  // Smooth plates on the K2 Plus and A1 are black; elsewhere only when holographic.
+  if (isSmoothPlate(bedType) && (printer !== 'generic' || holo !== 'none')) return SURFACES.smoothBlack;
+  // Otherwise each printer keeps its own look so it's obvious which machine you're previewing.
   if (printer === 'k2plus') return SURFACES.k2;
   if (printer === 'a1') return SURFACES.a1;
   const b = bedType.toLowerCase();
@@ -164,7 +208,7 @@ function mulberry32(seed: number) {
 }
 
 /** Plate texture: surface finish, 10 mm grid, labels and an origin marker. */
-function plateTexture(def: PrinterDef, s: Surface, plateMin: [number, number], plateSize: [number, number], logo: string) {
+function plateTexture(def: PrinterDef, s: Surface, plateMin: [number, number], plateSize: [number, number], logo: string, holo: HoloPattern) {
   const pxPerMm = Math.min(6, 2048 / Math.max(plateSize[0], plateSize[1]));
   const W = Math.round(plateSize[0] * pxPerMm);
   const H = Math.round(plateSize[1] * pxPerMm);
@@ -189,6 +233,42 @@ function plateTexture(def: PrinterDef, s: Surface, plateMin: [number, number], p
   // bed mm -> canvas px (canvas Y grows down, bed Y grows back)
   const px = (x: number) => (x - plateMin[0]) * pxPerMm;
   const py = (y: number) => H - (y - plateMin[1]) * pxPerMm;
+
+  // the holographic film's pattern is faintly visible even where it isn't catching the light
+  if (holo !== 'none') {
+    g.strokeStyle = 'rgba(255,255,255,0.045)';
+    g.lineWidth = Math.max(1, 0.25 * pxPerMm);
+    const cx = px((def.min[0] + def.max[0]) / 2);
+    const cy = py((def.min[1] + def.max[1]) / 2);
+    const reach = Math.hypot(W, H);
+    if (holo === 'circular') {
+      // disc outlines on the same hex grid as the shader (centres at (i·S, j·S√3) and offset by half)
+      const sx = HOLO_DOT_MM * pxPerMm;
+      const sy = HOLO_DOT_MM * Math.sqrt(3) * pxPerMm;
+      const r = HOLO_DOT_R_MM * pxPerMm;
+      g.beginPath();
+      for (const [ox, oy] of [[0, 0], [sx / 2, sy / 2]]) {
+        for (let x = cx + ox - Math.ceil(cx / sx) * sx; x < W + r; x += sx) {
+          for (let y = cy - oy - Math.ceil(cy / sy) * sy; y < H + r; y += sy) {
+            g.moveTo(x + r, y);
+            g.arc(x, y, r, 0, Math.PI * 2);
+          }
+        }
+      }
+      g.stroke();
+    } else {
+      // lines x ± y = n·cell·√2 through the centre, in both diagonal directions
+      const step = HOLO_CELL_MM * Math.SQRT2 * pxPerMm;
+      g.beginPath();
+      for (let k = -Math.ceil(reach / step) * step; k < reach; k += step) {
+        g.moveTo(cx + k - reach, cy - reach);
+        g.lineTo(cx + k + reach, cy + reach);
+        g.moveTo(cx + k + reach, cy - reach);
+        g.lineTo(cx + k - reach, cy + reach);
+      }
+      g.stroke();
+    }
+  }
 
   // grid over the printable area
   const [x0, y0] = def.min;
@@ -267,6 +347,49 @@ function plateTexture(def: PrinterDef, s: Surface, plateMin: [number, number], p
   return tex;
 }
 
+/** Tileable powder-coat grain for textured PEI, used as a bump map. Tiles every GRAIN_TILE_MM. */
+const GRAIN_TILE_MM = 6;
+function grainTexture() {
+  const N = 256;
+  const rnd = mulberry32(99);
+  // two octaves of smoothed value noise on wrapping lattices, so the tile repeats seamlessly
+  const octave = (cells: number) => {
+    const v = new Float32Array(cells * cells).map(() => rnd());
+    const out = new Float32Array(N * N);
+    for (let y = 0; y < N; y++) {
+      for (let x = 0; x < N; x++) {
+        const fx = (x / N) * cells;
+        const fy = (y / N) * cells;
+        const ix = Math.floor(fx);
+        const iy = Math.floor(fy);
+        const tx = (fx - ix) * (fx - ix) * (3 - 2 * (fx - ix));
+        const ty = (fy - iy) * (fy - iy) * (3 - 2 * (fy - iy));
+        const at = (i: number, j: number) => v[(j % cells) * cells + (i % cells)];
+        const a = at(ix, iy) + (at(ix + 1, iy) - at(ix, iy)) * tx;
+        const b = at(ix, iy + 1) + (at(ix + 1, iy + 1) - at(ix, iy + 1)) * tx;
+        out[y * N + x] = a + (b - a) * ty;
+      }
+    }
+    return out;
+  };
+  const coarse = octave(64);
+  const fine = octave(128);
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = N;
+  const g = canvas.getContext('2d')!;
+  const img = g.createImageData(N, N);
+  for (let i = 0; i < N * N; i++) {
+    const h = Math.round((coarse[i] * 0.6 + fine[i] * 0.4) * 255);
+    img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = h;
+    img.data[i * 4 + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.anisotropy = 8;
+  return tex;
+}
+
 function roundedRect(x: number, y: number, w: number, h: number, r: number) {
   const s = new THREE.Shape();
   s.moveTo(x + r, y);
@@ -298,13 +421,17 @@ export interface PrinterModel {
   dispose(): void;
 }
 
-export function buildPrinterModel(def: PrinterDef, bedType: string): PrinterModel {
+/**
+ * @param holo pattern to use if the plate turns out to be smooth PEI (ignored otherwise)
+ */
+export function buildPrinterModel(def: PrinterDef, bedType: string, holo: HoloPattern = DEFAULT_HOLO[def.id]): PrinterModel {
   const group = new THREE.Group();
   group.name = 'printer';
   const disposables: { dispose(): void }[] = [];
   const track = <T extends { dispose(): void }>(x: T) => (disposables.push(x), x);
 
-  const surface = surfaceFor(def.id, bedType);
+  if (!isSmoothPlate(bedType)) holo = 'none';
+  const surface = surfaceFor(def.id, bedType, holo);
   const pw = def.max[0] - def.min[0];
   const pd = def.max[1] - def.min[1];
 
@@ -336,11 +463,18 @@ export function buildPrinterModel(def: PrinterDef, bedType: string): PrinterMode
   }
 
   const logo = def.id === 'k2plus' ? 'K2 PLUS' : def.id === 'a1' ? 'A1' : '';
-  const tex = track(plateTexture(def, surface, plateMin, plateSize, logo));
+  const tex = track(plateTexture(def, surface, plateMin, plateSize, logo, holo));
   const plateGeo = track(new THREE.ExtrudeGeometry(shape, { depth: 0.8, bevelEnabled: true, bevelThickness: 0.2, bevelSize: 0.4, bevelSegments: 2, curveSegments: 10 }));
   planarUV(plateGeo, plateMin, plateSize);
   plateGeo.translate(0, 0, -1.2);
   const plateMat = track(new THREE.MeshStandardMaterial({ map: tex, roughness: surface.roughness, metalness: surface.metalness }));
+  if (surface.grain > 0) {
+    const grain = track(grainTexture());
+    grain.repeat.set(plateSize[0] / GRAIN_TILE_MM, plateSize[1] / GRAIN_TILE_MM);
+    plateMat.bumpMap = grain;
+    plateMat.bumpScale = surface.grain;
+  }
+  if (holo !== 'none') applyHolo(plateMat, holo, [(def.min[0] + def.max[0]) / 2, (def.min[1] + def.max[1]) / 2]);
   const plate = new THREE.Mesh(plateGeo, plateMat);
   plate.name = 'plate';
   group.add(plate);

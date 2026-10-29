@@ -5,7 +5,7 @@ import type { ParseResult } from './gcode/types';
 import type { ParseMessage, ParseRequest } from './gcode/worker';
 import ParseWorker from './gcode/worker?worker&inline';
 import type { ColorMode, Legend } from './render/colors';
-import { detectPrinter, type PrinterId } from './render/printers';
+import { DEFAULT_HOLO, detectPrinter, type HoloPattern, type PrinterId } from './render/printers';
 import type { ViewOptions } from './render/viewer';
 import { loadPrices, savePrices } from './pricing';
 import type { GcodeEntry } from './gcode/source';
@@ -18,6 +18,8 @@ interface Prefs {
   colorMode: ColorMode;
   options: ViewOptions;
   detailsOpen: boolean;
+  /** smooth-plate pattern per printer, only where the user changed it */
+  holo: Partial<Record<PrinterId, HoloPattern>>;
 }
 
 function loadPrefs(): Prefs {
@@ -26,6 +28,7 @@ function loadPrefs(): Prefs {
     colorMode: 'feature',
     options: { tubes: true, travels: false, retractions: false, ghost: false, volume: true },
     detailsOpen: false,
+    holo: {},
   };
   try {
     const s = JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}');
@@ -57,6 +60,7 @@ class AppState {
   moveHi = $state(0);
   /** the "Details" section (colour modes, display options, slicer info) */
   detailsOpen = $state(false);
+  holoPref = $state<Partial<Record<PrinterId, HoloPattern>>>({});
 
   inspect = $state<{ index: number } | null>(null);
   prices = $state<Record<string, number>>(loadPrices());
@@ -72,6 +76,18 @@ class AppState {
     this.colorMode = p.colorMode;
     this.options = p.options;
     this.detailsOpen = p.detailsOpen;
+    this.holoPref = p.holo;
+  }
+
+  /** Smooth-plate look for a printer: the user's setting, else the one the share link was made with, else the default. */
+  holoFor(id: PrinterId): HoloPattern {
+    const m = this.shareManifest;
+    return this.holoPref[id] ?? (m?.holo && m.printer === id ? m.holo : undefined) ?? DEFAULT_HOLO[id];
+  }
+
+  setHolo(id: PrinterId, h: HoloPattern) {
+    this.holoPref = { ...this.holoPref, [id]: h };
+    this.persist();
   }
 
   get printerId(): PrinterId {
@@ -88,7 +104,13 @@ class AppState {
   persist() {
     localStorage.setItem(
       PREFS_KEY,
-      JSON.stringify({ printer: this.printerPref, colorMode: this.colorMode, options: this.options, detailsOpen: this.detailsOpen } satisfies Prefs),
+      JSON.stringify({
+        printer: this.printerPref,
+        colorMode: this.colorMode,
+        options: this.options,
+        detailsOpen: this.detailsOpen,
+        holo: this.holoPref,
+      } satisfies Prefs),
     );
   }
 

@@ -16,6 +16,7 @@
         entry: app.fileEntry,
         name: app.result.fileName,
         printer: app.printerId,
+        holo: app.holoFor(app.printerId),
         thumbnail: app.result.meta.thumbnail,
         onProgress: (p) => {
           const label = p.phase === 'compress' ? 'Compressing G-code…' : p.phase === 'upload' ? `Uploading… ${Math.round(p.fraction * 100)}%` : 'Publishing…';
