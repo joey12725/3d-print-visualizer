@@ -4,7 +4,7 @@
   import { app } from '../state.svelte';
   import { COLOR_MODES, formatDuration } from '../render/colors';
   import { FEATURES } from '../gcode/features';
-  import { detectPrinter, PRINTERS, type PrinterId } from '../render/printers';
+  import { detectPrinter, HOLO_LABELS, PRINTERS, type HoloPattern, type PrinterId } from '../render/printers';
   import { filamentCost, materialKey, DEFAULT_PRICES } from '../pricing';
   import Icon from './Icon.svelte';
   import SharePanel from './SharePanel.svelte';
@@ -209,6 +209,14 @@
           <option value="k2plus">Creality K2 Plus</option>
           <option value="a1">Bambu Lab A1</option>
           <option value="generic">From G-code bed size</option>
+        </select>
+      </label>
+      <label class="select">
+        <span>Smooth plate on {app.printerId === 'generic' ? 'this printer' : PRINTERS[app.printerId].name.replace(/^(Creality|Bambu Lab) /, '')}</span>
+        <select value={app.holoFor(app.printerId)} onchange={(e) => app.setHolo(app.printerId, (e.target as HTMLSelectElement).value as HoloPattern)}>
+          {#each Object.entries(HOLO_LABELS) as [v, label] (v)}
+            <option value={v}>{label}</option>
+          {/each}
         </select>
       </label>
     </section>

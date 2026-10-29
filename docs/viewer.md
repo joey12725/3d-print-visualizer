@@ -15,6 +15,15 @@ side on horizontal screens, including a phone held sideways.
 | Creality K2 Plus | black textured PEI, front pull tab | very dark grey, enclosure frame |
 | Bambu Lab A1 | bronze/gold textured PEI, rear pins | very light grey bed slinger: carriage, Y-beam, feet |
 
+Textured PEI plates have a powder-coat grain (a bump map), so they read as matte up close.
+
+**Smooth plates** (the slicer's "High Temp Plate", shown as "Smooth PEI Plate / High Temp Plate" in Bambu
+Studio and Creality Print) are drawn as black holographic PEI. The rainbow is computed from the light and
+view direction, so it moves as you orbit. By default the K2 Plus gets hundreds of small holographic circles and
+the A1 gets a crosshatch. Change it per printer under Details → Display → "Smooth plate on …" (Holographic circles,
+Holographic crosshatch or Plain). Links you make with "Create 14-day link" keep the pattern you
+picked. Links from `share.sh` use the defaults.
+
 **Camera pad** (top right): ⌂ resets the view, ↑ top, ↓ front, ← left, → right. Drag to rotate
 (one finger), scroll or pinch to zoom, right-drag or two fingers to pan. Double-click or double-tap a
 line to orbit around it. Press `R` to reset.
@@ -30,7 +39,7 @@ every layer again.
   fan speed, temperature or acceleration. In line-type mode you can hide types (click to toggle,
   double-click to show only that type).
 - Display: 3D lines or fast lines, travel moves, retractions, grey layers below the range, build volume,
-  printer override.
+  printer override, smooth-plate pattern for the current printer.
 - File: slicer and version, printer profile, nozzle, plate type, filament profiles, and filament prices
   ($/kg: PLA 14, PETG 15, ASA 19, TPU 19 by default; editable).
 

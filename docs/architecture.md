@@ -33,8 +33,11 @@ file ──► worker.ts ─► source.ts (gz / 3mf / zip) ─► parser.ts ─�
 - Picking renders instance IDs into a 1×1 target.
 - Rendering only happens when something changes. The camera re-frames on resize until the user moves it,
   and `setInsets()` keeps the model centered in the part of the screen that UI doesn't cover.
-- `printers.ts` builds the plates procedurally: canvas textures for the surface, grid and labels, plus simple
-  geometry for each printer's "visual language" (K2 Plus enclosure frame, A1 Y-beam and feet).
+- `printers.ts` builds the plates procedurally: canvas textures for the surface, grid and labels, a tiled
+  bump map for textured PEI grain, plus simple geometry for each printer's "visual language" (K2 Plus
+  enclosure frame, A1 Y-beam and feet). `DEFAULT_HOLO` sets which smooth-plate pattern each printer gets.
+- `holo.ts` patches the plate's `MeshStandardMaterial` (`onBeforeCompile`) for smooth plates: a fake
+  diffraction grating (a hex grid of small discs with circular grooves, or crosshatch) lit by the key light and a light at the camera.
 
 ## UI (`src/lib/ui`, `src/App.svelte`)
 

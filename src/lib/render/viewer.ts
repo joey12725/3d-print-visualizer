@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { ParseResult } from '../gcode/types';
-import { buildPrinterModel, type PrinterDef, type PrinterModel } from './printers';
+import { buildPrinterModel, type HoloPattern, type PrinterDef, type PrinterModel } from './printers';
 import { FLAT_FRAG, LINE_FRAG, LINE_VERT, POINT_FRAG, POINT_VERT, TRAVEL_VERT, TUBE_FRAG, TUBE_VERT } from './shaders';
 
 export type ViewPreset = 'iso' | 'top' | 'front' | 'back' | 'left' | 'right';
@@ -149,13 +149,13 @@ export class Viewer {
 
   // ------------------------------------------------------------------ public API
 
-  setPrinter(def: PrinterDef, bedType: string) {
+  setPrinter(def: PrinterDef, bedType: string, holo: HoloPattern) {
     if (this.printer) {
       this.scene.remove(this.printer.group);
       this.printer.dispose();
     }
     this.printerDef = def;
-    this.printer = buildPrinterModel(def, bedType);
+    this.printer = buildPrinterModel(def, bedType, holo);
     this.printer.volume.visible = this.options.volume;
     this.scene.add(this.printer.group);
     this.requestRender();

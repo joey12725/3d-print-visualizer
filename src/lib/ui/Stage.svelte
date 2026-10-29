@@ -38,7 +38,7 @@
     if (!v) return;
     const id = app.printerId;
     const meta = app.result?.meta ?? null;
-    v.setPrinter(resolvePrinter(id, meta), meta?.bedType ?? '');
+    v.setPrinter(resolvePrinter(id, meta), meta?.bedType ?? '', app.holoFor(id));
     untrack(() => {
       if (!app.result) v.resetView(false);
     });
