@@ -67,10 +67,15 @@ async function render(dir) {
     if (finished) return;
     finished = true;
     clearTimeout(timer);
-    proc.kill();
     server.close();
-    setTimeout(() => rmSync(profile, { recursive: true, force: true }), 300);
-    if (err) die(err);
+    const done = () => {
+      rmSync(profile, { recursive: true, force: true });
+      if (err) die(err);
+      process.exit(0);
+    };
+    if (proc.exitCode !== null || proc.signalCode !== null) return done();
+    proc.once('exit', done);
+    proc.kill();
   }
   try {
     const wsUrl = await new Promise((resolve, reject) => {

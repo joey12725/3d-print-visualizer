@@ -342,9 +342,12 @@ export class Viewer {
     out.width = w;
     out.height = h;
     const range = this.uniforms.uRange.value.clone();
+    const vis = this.uniforms.uVis.value.slice();
     const ratio = this.renderer.getPixelRatio();
     const cam = this.camera.clone();
+    // the whole print, every line type: what a link shows when it opens
     if (this.model) this.setMoveRange(0, this.model.moveCount);
+    this.uniforms.uVis.value.fill(1);
     const { target, radius } = this.focusInfo();
     cam.aspect = w / h;
     cam.clearViewOffset();
@@ -359,8 +362,9 @@ export class Viewer {
     this.renderer.render(this.scene, cam);
     out.getContext('2d')!.drawImage(this.renderer.domElement, 0, 0);
     this.renderer.setPixelRatio(ratio);
+    this.renderer.setSize(this.container.clientWidth || 1, this.container.clientHeight || 1, false);
+    this.uniforms.uVis.value.set(vis);
     this.setMoveRange(range.x, range.y);
-    this.resize();
     return out;
   }
 
