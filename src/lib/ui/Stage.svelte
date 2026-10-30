@@ -4,8 +4,9 @@
   import { untrack } from 'svelte';
   import { app } from '../state.svelte';
   import { Viewer, type ViewPreset } from '../render/viewer';
-  import { computeColors } from '../render/colors';
+  import { computeColors, formatDuration } from '../render/colors';
   import { resolvePrinter } from '../render/printers';
+  import { ogImage } from '../share/ogimage';
 
   /** px of the canvas covered by overlays (layer slider, timeline, bottom sheet) */
   let { insets = { right: 0, bottom: 0 } }: { insets?: { right: number; bottom: number } } = $props();
@@ -25,11 +26,26 @@
     try {
       viewer = new Viewer(el);
       if (import.meta.env.DEV) (window as unknown as { __viewer: Viewer }).__viewer = viewer;
+      const v = viewer;
+      app.ogImage = () => {
+        const r = app.result;
+        const grams = r ? r.filaments.reduce((a, f) => a + f.weightG, 0) : 0;
+        const line = [
+          r && formatDuration(r.totalTimeS, false),
+          grams > 0 && `${grams.toFixed(1)} g`,
+          resolvePrinter(app.printerId, r?.meta ?? null).name,
+          r?.meta.bedType,
+        ];
+        return ogImage(v, { title: (r?.fileName ?? 'Print').replace(/\.gcode$/i, ''), line: line.filter(Boolean).join(' · ') });
+      };
     } catch (e) {
       app.error = 'WebGL is not available in this browser, so the 3D preview cannot be shown.';
       console.error(e);
     }
-    return () => viewer?.dispose();
+    return () => {
+      app.ogImage = null;
+      viewer?.dispose();
+    };
   });
 
   // printer + plate

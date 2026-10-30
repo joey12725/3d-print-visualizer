@@ -15,6 +15,8 @@ API="https://here.now/api/v1"
 H=(-H "Authorization: Bearer $KEY" -H "X-HereNow-Client: claude-code/deploy-sh" -H "content-type: application/json")
 
 [ -f dist/index.html ] || { echo "dist/ is missing — run npm run build first" >&2; exit 1; }
+# here.now inserts its link-preview tags before the first </head>; one inside the bundle breaks shares
+[ "$(grep -o '</head>' dist/index.html | wc -l | tr -d ' ')" = 1 ] || { echo "dist/index.html must contain exactly one </head> (see src/lib/share/social.ts)" >&2; exit 1; }
 SLUG="$(jq -r '.slug // empty' herenow.json 2>/dev/null || true)"
 
 ctype() {

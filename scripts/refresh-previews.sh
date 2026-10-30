@@ -20,6 +20,8 @@ WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 curl -sSf "${MAIN_URL%/}/index.html" -o "$WORK/index.html" || die "couldn't download the viewer from $MAIN_URL"
 grep -q '<div id="app">' "$WORK/index.html" || die "the main site didn't return the viewer page"
+# drop the main site's link-preview tags and leave room for each link's own (og-image.mjs)
+node "$ROOT/scripts/og-image.mjs" slot "$WORK/index.html"
 
 if [ $# -gt 0 ]; then
   SLUGS="$*"
@@ -42,10 +44,17 @@ for slug in $SLUGS; do
     curl -sSf "$API/publish/$slug/files/$f" "${H[@]}" -o "$dir/$f" || { echo "skip $slug: missing $f"; continue 2; }
   done
   cp "$WORK/index.html" "$dir/index.html"
-  body=$(jq -n --argjson s1 "$(size "$dir/index.html")" --argjson s2 "$(size "$dir/print.gcode.gz")" --argjson s3 "$(size "$dir/share.json")" \
-    '{files:[{path:"index.html", size:$s1, contentType:"text/html; charset=utf-8"},
+  # a fresh preview picture, and the page's preview tags pointing at it (the URL is known here)
+  files='[]'
+  if node "$ROOT/scripts/og-image.mjs" render "$dir"; then
+    node "$ROOT/scripts/og-image.mjs" fill "$dir/index.html" "$(echo "$info" | jq -r ".siteUrl // \"https://$slug.here.now/\"")" \
+      "$(jq -r '.name | sub("\\.gcode$"; "")' "$dir/share.json")" "$(echo "$info" | jq -r '.displayDescription // "Shared 3D print preview"')"
+    files=$(jq -n --argjson s "$(size "$dir/og.jpg")" '[{path:"og.jpg", size:$s, contentType:"image/jpeg"}]')
+  fi
+  body=$(jq -n --argjson s1 "$(size "$dir/index.html")" --argjson s2 "$(size "$dir/print.gcode.gz")" --argjson s3 "$(size "$dir/share.json")" --argjson og "$files" \
+    '{files:([{path:"index.html", size:$s1, contentType:"text/html; charset=utf-8"},
              {path:"print.gcode.gz", size:$s2, contentType:"application/octet-stream"},
-             {path:"share.json", size:$s3, contentType:"application/json; charset=utf-8"}]}')
+             {path:"share.json", size:$s3, contentType:"application/json; charset=utf-8"}] + $og)}')
   res=$(curl -sS -X PUT "$API/publish/$slug" "${H[@]}" -H "content-type: application/json" -d "$body")
   version=$(echo "$res" | jq -r '.upload.versionId // empty')
   [ -n "$version" ] || { echo "skip $slug: update failed: $res"; continue; }

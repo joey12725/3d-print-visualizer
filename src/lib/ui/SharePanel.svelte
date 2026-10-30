@@ -18,6 +18,7 @@
         printer: app.printerId,
         holo: app.holoFor(app.printerId),
         thumbnail: app.result.meta.thumbnail,
+        ogImage: await app.ogImage?.().catch(() => null),
         onProgress: (p) => {
           const label = p.phase === 'compress' ? 'Compressing G-code…' : p.phase === 'upload' ? `Uploading… ${Math.round(p.fraction * 100)}%` : 'Publishing…';
           app.share = { status: 'working', label, fraction: p.fraction };

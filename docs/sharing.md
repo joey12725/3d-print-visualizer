@@ -13,13 +13,30 @@
 
 ## A preview site
 
-Each share is a separate here.now site with three files:
+Each share is a separate here.now site with these files:
 
 ```
-index.html       the whole viewer (copied from the main site)
+index.html       the whole viewer (copied from the main site), with this link's og:/twitter: tags
 print.gcode.gz   the G-code, gzip -6
 share.json       { v:1, name, createdAt, expiresAt, printer, bytes, thumbnail? }
+og.jpg           link-preview picture, 1200×630: the print on its plate plus name, time, grams, printer
 ```
+
+### Link previews (Discord, iMessage, …)
+
+here.now adds og:/twitter: tags to any page without them, pointing at its own screenshot, and leaves
+existing tags alone. It ignores `viewer.ogImagePath` for sites that have an `index.html`. The main site's
+page is served with here.now's tags *for the main site*, so a share copied from it used to unfurl as the
+empty "Drop a sliced G-code file" screen. `src/lib/share/social.ts` strips those tags and reserves a fixed-size slot
+before `</head>`. Once the create call returns the new site's URL, it fills the slot with tags pointing at
+`<url>/og.jpg`. The slot keeps the byte size unchanged, because file sizes are declared before the URL is known.
+
+The picture comes from the viewer itself (`Viewer.snapshot` + `src/lib/share/ogimage.ts`): the default view
+with all layers. In the app, "Create 14-day link" renders it from the open print. `share.sh` and
+`refresh-previews.sh` serve the link's files on localhost and open them with `?og` in headless Chrome
+(`scripts/og-image.mjs`), which hands the picture back. With no Chrome, or an older viewer without `?og`,
+the slot stays empty and here.now's own screenshot is used. Chat apps cache unfurls, so a message that was
+already posted keeps its old card.
 
 When `index.html` loads, it fetches `./share.json`. If that file exists, the page is in share mode:
 it downloads `./print.gcode.gz`, decompresses it in the browser, shows "Shared link · deleted
@@ -39,7 +56,7 @@ and the page shows the file picker instead.
 Each preview ships the viewer as it was when the link was made. After `npm run deploy`,
 `scripts/refresh-previews.sh` swaps the deployed `index.html` into every unexpired preview in `Print previews`
 (or just the slugs you pass). It re-uploads the link's existing `print.gcode.gz` and `share.json` unchanged and
-puts the original expiry back if the update moved it.
+puts the original expiry back if the update moved it. It also renders a fresh `og.jpg` for each link.
 
 ## Expiry: what actually happens
 

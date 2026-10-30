@@ -42,4 +42,4 @@ npm run deploy    # publish to the main here.now site
 | [docs/sharing.md](docs/sharing.md) | here.now setup, proxy routes, TTL, security, rebuilding from scratch |
 | [docs/viewer.md](docs/viewer.md) | every control in the viewer |
 
-Requirements: Node 20+. The share script needs `curl`, `jq`, `gzip`, `unzip` and a here.now API key (`$HERENOW_API_KEY` or `~/.herenow/credentials`).
+Requirements: Node 22.18+. The share script needs `curl`, `jq`, `gzip`, `unzip`, Chrome (for the link-preview picture) and a here.now API key (`$HERENOW_API_KEY` or `~/.herenow/credentials`).

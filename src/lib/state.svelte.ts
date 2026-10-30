@@ -68,6 +68,9 @@ class AppState {
   shareManifest = $state.raw<ShareManifest | null>(null);
   share = $state<{ status: 'idle' | 'working' | 'done' | 'error'; label?: string; fraction?: number; result?: SavedShare; error?: string }>({ status: 'idle' });
 
+  /** renders the link-preview picture of the current print (set by Stage) */
+  ogImage: (() => Promise<Blob>) | null = null;
+
   private worker: Worker | null = null;
 
   constructor() {
