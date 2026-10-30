@@ -5,6 +5,7 @@
 
 import { gzippedGcode } from '../gcode/source';
 import type { HoloPattern, PrinterId } from '../render/printers';
+import { fillSocialSlot, OG_IMAGE, socialTags, withSocialSlot } from './social';
 
 export const SHARE_TTL_DAYS = 14;
 export const SHARE_TTL_S = SHARE_TTL_DAYS * 24 * 3600;
@@ -166,14 +167,16 @@ export async function createShare(opts: {
   printer: PrinterId;
   holo?: HoloPattern;
   thumbnail?: string | null;
+  /** link-preview picture (og.jpg); without it here.now's own screenshot is used */
+  ogImage?: Blob | null;
   onProgress: (p: ShareProgress) => void;
 }): Promise<SavedShare> {
   const { onProgress } = opts;
   onProgress({ phase: 'compress', fraction: 0 });
   const [html, gz] = await Promise.all([
-    fetch('/index.html', { cache: 'no-cache' }).then((r) => {
+    fetch('/index.html', { cache: 'no-cache' }).then(async (r) => {
       if (!r.ok) throw new Error('Could not read the viewer page');
-      return r.blob();
+      return withSocialSlot(await r.text());
     }),
     gzippedGcode(opts.file, opts.entry),
   ]);
@@ -191,19 +194,23 @@ export async function createShare(opts: {
   };
   const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
   const files = [
-    { path: 'index.html', blob: html, contentType: 'text/html; charset=utf-8' },
+    { path: 'index.html', blob: new Blob([html]), contentType: 'text/html; charset=utf-8' },
     { path: SHARE_GCODE, blob: gz, contentType: 'application/octet-stream' },
     { path: SHARE_MANIFEST, blob: manifestBlob, contentType: 'application/json; charset=utf-8' },
   ];
+  if (opts.ogImage) files.push({ path: OG_IMAGE, blob: opts.ogImage, contentType: 'image/jpeg' });
   const title = opts.name.replace(/\.gcode$/i, '').slice(0, 60);
+  const description = `Shared 3D print preview (expires ${manifest.expiresAt.slice(0, 10)})`;
   const created = await api<CreateResponse>('/api/share/create', {
     ttlSeconds: SHARE_TTL_S,
     displayName: `G-code · ${title}`.slice(0, 80),
-    displayDescription: `Shared 3D print preview (expires ${manifest.expiresAt.slice(0, 10)})`,
+    displayDescription: description,
     // all previews live in one dashboard folder, which is what cleanup-expired.sh sweeps
     folder: 'Print previews',
     files: files.map((f) => ({ path: f.path, size: f.blob.size, contentType: f.contentType })),
   });
+  // now that the URL is known, point the page's preview tags at its own og.jpg (same byte size)
+  if (opts.ogImage) files[0].blob = new Blob([fillSocialSlot(html, socialTags(created.siteUrl, opts.name.replace(/\.gcode$/i, ''), description))]);
 
   const total = files.reduce((a, f) => a + f.blob.size, 0);
   const done = new Map<string, number>();

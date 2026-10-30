@@ -70,7 +70,9 @@ It only ever touches sites in the Print previews folder whose expiry has passed.
 
 ## Requirements
 
-- `curl`, `jq`, `gzip`, `unzip`, `base64` (all standard on macOS and most Linux distributions).
+- `curl`, `jq`, `gzip`, `unzip`, `base64` (all standard on macOS and most Linux distributions), and Node 22.18+.
+- Google Chrome (or `$CHROME`) for the link's preview picture, the image Discord, iMessage and others show:
+  a render of the print on its plate. Without Chrome the link still works and here.now's own screenshot is used.
 - A here.now API key in `$HERENOW_API_KEY` or `~/.herenow/credentials`. The script never prints it.
 - The main viewer site from `herenow.json` must be live. The script copies its current
   `index.html` into each link. If it can't reach it, it falls back to `dist/index.html`

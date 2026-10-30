@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { app } from './lib/state.svelte';
   import { formatDuration } from './lib/render/colors';
-    import { fetchSharedGcode, loadShareManifest } from './lib/share/share';
+  import { fetchSharedGcode, loadShareManifest } from './lib/share/share';
   import { PRINTERS } from './lib/render/printers';
   import Stage from './lib/ui/Stage.svelte';
   import Panel from './lib/ui/Panel.svelte';
@@ -61,8 +61,27 @@
         app.loading = null;
         app.error = e instanceof Error ? e.message : String(e);
       }
+      if (new URLSearchParams(location.search).has('og')) captureOg();
     }
     booting = false;
+  }
+
+  /** ?og on a share: render the link-preview picture for scripts/og-image.mjs to collect */
+  async function captureOg() {
+    const w = window as unknown as { __og?: { image?: string; error?: string } };
+    try {
+      await tick();
+      if (app.error || !app.result || !app.ogImage) throw new Error(app.error ?? 'nothing to render');
+      const blob = await app.ogImage();
+      const image = await new Promise<string>((resolve) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(fr.result as string);
+        fr.readAsDataURL(blob);
+      });
+      w.__og = { image };
+    } catch (e) {
+      w.__og = { error: e instanceof Error ? e.message : String(e) };
+    }
   }
 
   function openFiles(files: FileList | null | undefined) {

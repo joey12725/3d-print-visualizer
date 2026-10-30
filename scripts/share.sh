@@ -13,14 +13,16 @@
 #   --ttl-days N       expiry in days (default 14)
 #   --json             print a JSON object instead of just the URL
 #
-# Needs curl, jq, gzip, unzip, base64 and a here.now API key in $HERENOW_API_KEY or
+# Needs curl, jq, gzip, unzip, base64, node and a here.now API key in $HERENOW_API_KEY or
 # ~/.herenow/credentials. The viewer page is taken from the deployed main site (see
 # herenow.json) so links always get the latest viewer; falls back to dist/index.html.
+# With Chrome installed, the link's preview picture (Discord, iMessage, …) is a render of
+# the print on its plate (scripts/og-image.mjs); without it, here.now's own screenshot.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 die() { echo "share.sh: $*" >&2; exit 1; }
-for bin in curl jq gzip unzip base64; do command -v "$bin" > /dev/null || die "missing $bin"; done
+for bin in curl jq gzip unzip base64 node; do command -v "$bin" > /dev/null || die "missing $bin"; done
 
 FILE="" PLATE=1 NAME="" PRINTER="" TTL_DAYS=14 JSON=0
 while [ $# -gt 0 ]; do
@@ -105,6 +107,8 @@ elif [ -f "$ROOT/dist/index.html" ]; then
 else
   die "couldn't get the viewer page from ${MAIN_URL:-herenow.json} and dist/index.html is missing (run npm run build)"
 fi
+# drop the main site's link-preview tags and leave room for this link's own (og-image.mjs)
+node "$ROOT/scripts/og-image.mjs" slot "$HTML"
 
 # ---- package
 gzip -6 -c "$GCODE" > "$WORK/print.gcode.gz"
@@ -114,20 +118,27 @@ EXP="$(date -u -r $(( $(date -u +%s) + TTL )) +%Y-%m-%dT%H:%M:%SZ 2>/dev/null ||
 jq -n --arg name "$NAME" --arg c "$NOW" --arg e "$EXP" --arg p "$PRINTER" --arg t "$THUMB" \
   --argjson b "$(wc -c < "$WORK/print.gcode.gz" | tr -d ' ')" \
   '{v:1, name:$name, createdAt:$c, expiresAt:$e, printer:$p, bytes:$b} + (if $t == "" then {} else {thumbnail:$t} end)' > "$WORK/share.json"
+node "$ROOT/scripts/og-image.mjs" render "$WORK" || echo "share.sh: no preview picture; the link will use here.now's screenshot" >&2
 
 size() { wc -c < "$1" | tr -d ' '; }
 TITLE="$(echo "${NAME%.gcode}" | cut -c1-60)"
-BODY=$(jq -n --argjson ttl "$TTL" --arg dn "G-code · $TITLE" --arg dd "Shared 3D print preview (expires ${EXP:0:10})" --arg folder "Print previews" \
+DESC="Shared 3D print preview (expires ${EXP:0:10})"
+if [ -s "$WORK/og.jpg" ]; then OG=1; else OG=0; fi
+BODY=$(jq -n --argjson ttl "$TTL" --arg dn "G-code · $TITLE" --arg dd "$DESC" --arg folder "Print previews" \
   --argjson s1 "$(size "$HTML")" --argjson s2 "$(size "$WORK/print.gcode.gz")" --argjson s3 "$(size "$WORK/share.json")" \
-  '{ttlSeconds:$ttl, displayName:($dn[0:80]), displayDescription:$dd, folder:$folder, files:[
+  --argjson s4 "$([ "$OG" = 1 ] && size "$WORK/og.jpg" || echo 0)" \
+  '{ttlSeconds:$ttl, displayName:($dn[0:80]), displayDescription:$dd, folder:$folder, files:([
      {path:"index.html", size:$s1, contentType:"text/html; charset=utf-8"},
      {path:"print.gcode.gz", size:$s2, contentType:"application/octet-stream"},
-     {path:"share.json", size:$s3, contentType:"application/json; charset=utf-8"}]}')
+     {path:"share.json", size:$s3, contentType:"application/json; charset=utf-8"}]
+     + (if $s4 > 0 then [{path:"og.jpg", size:$s4, contentType:"image/jpeg"}] else [] end))}')
 
 RES=$(curl -sS -X POST "$API/publish" "${H[@]}" -d "$BODY")
 SLUG=$(echo "$RES" | jq -r '.slug // empty')
 [ -n "$SLUG" ] || die "create failed: $RES"
 VERSION=$(echo "$RES" | jq -r '.upload.versionId')
+# the URL is known now: point the page's preview tags at its og.jpg (keeps the declared size)
+if [ "$OG" = 1 ]; then node "$ROOT/scripts/og-image.mjs" fill "$HTML" "$(echo "$RES" | jq -r .siteUrl)" "${NAME%.gcode}" "$DESC"; fi
 echo "$RES" | jq -c '.upload.uploads[]' | while read -r u; do
   p=$(echo "$u" | jq -r .path)
   case "$p" in index.html) src="$HTML" ;; *) src="$WORK/$p" ;; esac

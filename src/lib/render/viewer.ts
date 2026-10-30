@@ -332,6 +332,38 @@ export class Viewer {
     return { index: id, point };
   }
 
+  /**
+   * Render the default view of the whole print (all layers, whole plate in frame) at w×h
+   * for link previews. Uses the on-screen canvas for one synchronous frame, so it looks
+   * exactly like the page; the copy is taken before the browser can paint the odd size.
+   */
+  snapshot(w: number, h: number): HTMLCanvasElement {
+    const out = document.createElement('canvas');
+    out.width = w;
+    out.height = h;
+    const range = this.uniforms.uRange.value.clone();
+    const ratio = this.renderer.getPixelRatio();
+    const cam = this.camera.clone();
+    if (this.model) this.setMoveRange(0, this.model.moveCount);
+    const { target, radius } = this.focusInfo();
+    cam.aspect = w / h;
+    cam.clearViewOffset();
+    cam.position.copy(target).addScaledVector(this.isoDirFor(w, h), this.fitFor(radius, THREE.MathUtils.degToRad(cam.fov), w / h));
+    cam.lookAt(target);
+    const dist = cam.position.distanceTo(target);
+    cam.near = Math.max(0.1, dist / 500);
+    cam.far = dist * 20 + 2000;
+    cam.updateProjectionMatrix();
+    this.renderer.setPixelRatio(1);
+    this.renderer.setSize(w, h, false);
+    this.renderer.render(this.scene, cam);
+    out.getContext('2d')!.drawImage(this.renderer.domElement, 0, 0);
+    this.renderer.setPixelRatio(ratio);
+    this.setMoveRange(range.x, range.y);
+    this.resize();
+    return out;
+  }
+
   requestRender() {
     this.dirty = true;
   }
@@ -421,8 +453,10 @@ export class Viewer {
 
   /** Default camera direction; steeper on tall (phone) screens so the plate fills them. */
   private isoDir() {
-    const w = (this.container.clientWidth || 1) - this.insets.right;
-    const h = (this.container.clientHeight || 1) - this.insets.bottom;
+    return this.isoDirFor((this.container.clientWidth || 1) - this.insets.right, (this.container.clientHeight || 1) - this.insets.bottom);
+  }
+
+  private isoDirFor(w: number, h: number) {
     return (w / h < 0.85 ? new THREE.Vector3(0, -0.5, 0.87) : new THREE.Vector3(0, -0.78, 0.62)).normalize();
   }
 
