@@ -17,10 +17,15 @@ const OPEN = '<!--og-->';
 const CLOSE = '<!--/og-->';
 const SLOT_BYTES = 2048;
 
+// The built page must never contain a raw "</script>" or "</head>" from this file: the first would
+// end the inline <script> it is bundled into, and here.now puts its tags before the first "</head>".
+// The minifier escapes the first by itself; a regex literal keeps the second escaped.
+const END_SCRIPT = '<\/script>';
+const END_HEAD = /<\/head>/;
+
 /** Only touch the end of <head>: the inlined bundle above it contains these strings too. */
 function splitTail(html: string): [string, string] {
-  // written as <\/ so this file can sit inside the page's own inline <script>
-  const i = Math.max(0, html.lastIndexOf('<\/script>'));
+  const i = Math.max(0, html.lastIndexOf(END_SCRIPT));
   return [html.slice(0, i), html.slice(i)];
 }
 
@@ -33,7 +38,7 @@ export function stripSocialMeta(html: string): string {
 /** Strip the main site's tags and leave an empty slot before </head>. */
 export function withSocialSlot(html: string): string {
   const [head, tail] = splitTail(stripSocialMeta(html));
-  const i = tail.lastIndexOf('</head>');
+  const i = tail.search(END_HEAD);
   if (i < 0) return head + tail;
   return head + tail.slice(0, i) + OPEN + ' '.repeat(SLOT_BYTES) + CLOSE + tail.slice(i);
 }
