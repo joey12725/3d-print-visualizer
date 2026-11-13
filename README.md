@@ -2,6 +2,8 @@
 
 # Print Preview
 
+[![CI](https://github.com/joey12725/3d-print-visualizer/actions/workflows/ci.yml/badge.svg)](https://github.com/joey12725/3d-print-visualizer/actions/workflows/ci.yml) [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 **See exactly what your printer is about to print, on your phone, before you hit Print.**
 
 Drop in a sliced `.gcode`, `.gcode.gz` or `.gcode.3mf` and Print Preview draws every extrusion as a shaded
