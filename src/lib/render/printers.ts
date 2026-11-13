@@ -162,7 +162,7 @@ const SURFACES: Record<string, Surface> = {
     label: 'Textured PEI',
     grain: 8,
   },
-  // Smooth PEI on the owner's printers: glossy black (holographic film is added in the shader)
+  // Smooth PEI: glossy black (holographic film is added in the shader)
   smoothBlack: {
     base: '#0B0B0D',
     speckle: ['#141417', '#060607'],

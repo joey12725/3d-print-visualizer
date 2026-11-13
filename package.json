@@ -2,7 +2,17 @@
   "name": "3d-print-visualizer",
   "private": true,
   "version": "1.0.0",
+  "description": "Phone-friendly 3D preview of sliced G-code: the print on the right build plate, with print time, grams per color and every line type.",
+  "author": "Joey Hersh",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/joey12725/3d-print-visualizer.git"
+  },
   "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -10,7 +20,8 @@
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run",
     "deploy": "npm run build && ./scripts/deploy.sh",
-    "share": "scripts/share.sh"
+    "share": "scripts/share.sh",
+    "sample": "node scripts/sample-gcode.ts"
   },
   "dependencies": {
     "fflate": "^0.8.3",

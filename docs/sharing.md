@@ -68,12 +68,11 @@ schedule, call it from cron or your agent's scheduler.
 
 ## Security notes
 
-- The main site is public (the owner asked for no password). Anyone who finds its URL can use the proxy to
-  create sites on the account. Each IP gets 30 creates per hour, and anything created that way that isn't
-  a valid share is just a site; the browser flow always sets the 14-day TTL, but a hand-crafted request
-  might not. If that becomes a problem: set a site password (`PATCH /api/v1/publish/<slug>/metadata
-  {"password":"…"}`; a password also gates the proxy routes), or revoke the key.
-- The proxy's prefix route only allows `POST` under `/api/v1/publish/…`.
+- The proxy key never reaches the browser, and the prefix route only allows `POST` under `/api/v1/publish/…`.
+- A main site without a password lets anyone who finds it create preview sites on your account, rate limited
+  to 30 per hour per IP. The browser flow always sets the 14-day TTL. To lock it down, set a site password
+  (`PATCH /api/v1/publish/<slug>/metadata {"password":"…"}`; a password also gates the proxy routes) or
+  revoke the dedicated key.
 
 ## Rebuilding the setup from scratch
 
@@ -87,6 +86,6 @@ curl -sS https://here.now/api/v1/me/keys -H "Authorization: Bearer $HERENOW_API_
 curl -sS -X PUT https://here.now/api/v1/me/variables/GCODE_VIZ_PUBLISH_KEY \
   -H "Authorization: Bearer $HERENOW_API_KEY" -H 'content-type: application/json' \
   -d '{"value":"hnk_…","allowedUpstreams":["here.now"]}'
-# 3. deploy (delete herenow.json first to create a brand-new site)
+# 3. deploy (delete herenow.json first to create a brand-new site of your own)
 npm ci && npm run deploy
 ```

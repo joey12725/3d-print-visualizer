@@ -1,5 +1,5 @@
-// Filament cost per kilogram, by material. Defaults come from the owner's actual
-// prices; anything can be changed in the UI and is remembered in localStorage.
+// Filament cost per kilogram, by material. Defaults are typical spool prices;
+// anything can be changed in the UI and is remembered in localStorage.
 
 import type { FilamentInfo } from './gcode/types';
 
